@@ -1,0 +1,36 @@
+{
+  "name": "smart-review",
+  "version": "1.0.0",
+  "description": "AI智能代码审查工具，支持静态规则和AI分析",
+  "type": "module",
+  "main": "index.js",
+  "bin": {
+    "smart-review": "./bin/review.js"
+  },
+  "scripts": {
+    "postinstall": "node ./bin/install.js",
+    "dev:install": "node ./bin/install.js",
+    "dev:review": "node ./bin/review.js",
+    "test:local": "cd test && npm run test-review",
+    "test:ai": "node ./bin/review.js --files test/src/index.tsx --ai",
+    "debug": "node --inspect ./bin/review.js --files test/src/test-file.js"
+  },
+  "keywords": ["code-review", "ai", "git-hook", "security"],
+  "author": "keen",
+  "license": "MIT",
+  "dependencies": {
+    "chalk": "^5.3.0",
+    "glob": "^10.3.10",
+    "openai": "^4.20.0",
+    "simple-git": "^3.19.1"
+  },
+  "files": [
+    "bin/",
+    "lib/",
+    "templates/",
+    "index.js"
+  ],
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}
