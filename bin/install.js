@@ -3,6 +3,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { execSync } from 'child_process';
 import { logger } from '../lib/utils/logger.js';
 import { FILE_PERMISSIONS, BATCH_CONSTANTS } from '../lib/utils/constants.js';
 
@@ -105,11 +106,41 @@ class Installer {
   }
 
   installGitHooks() {
-    const gitHooksDir = path.join(this.projectRoot, '.git', 'hooks');
+    // 1) 检测是否存在 git 命令
+    let gitAvailable = false;
+    try {
+      execSync('git --version', { stdio: 'ignore' });
+      gitAvailable = true;
+    } catch (e) {
+      gitAvailable = false;
+    }
+
+    if (!gitAvailable) {
+      logger.error('未检测到 Git，请先安装后重试： https://git-scm.com/downloads');
+      process.exit(1);
+    }
+
+    // 2) 若项目未初始化为 Git 仓库，执行 git init
+    const gitDir = path.join(this.projectRoot, '.git');
+    // review-disable-start
+    if (!fs.existsSync(gitDir)) {
+      logger.warn('未检测到 .git 目录，正在初始化 Git 仓库...');
+      try {
+        execSync('git init', { cwd: this.projectRoot, stdio: 'ignore' });
+      } catch (e) {
+        logger.error('Git 仓库初始化失败，请手动执行 `git init` 后重试');
+        process.exit(1);
+      }
+    }
+    // review-disable-end
+
+    // 3) 确保 hooks 目录存在
+    const gitHooksDir = path.join(gitDir, 'hooks');
+    // review-disable-start
     if (!fs.existsSync(gitHooksDir)) {
-      logger.warn('未找到.git/hooks目录，创建中...');
       fs.mkdirSync(gitHooksDir, { recursive: true });
     }
+    // review-disable-end
 
     const preCommitHook = path.join(gitHooksDir, 'pre-commit');
     

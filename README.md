@@ -691,10 +691,6 @@ code_review:
 DEBUG_SMART_REVIEW=true smart-review --staged --verbose
 ```
 
-## 📄 许可证
-
-MIT License - 详见 [LICENSE](LICENSE) 文件
-
 ## 🤝 贡献
 
 欢迎提交 Issue 和 Pull Request！
@@ -707,9 +703,8 @@ MIT License - 详见 [LICENSE](LICENSE) 文件
 
 ## 📞 支持
 
-- 📧 邮箱: support@smart-reviewer.com
-- 🐛 问题反馈: [GitHub Issues](https://github.com/your-username/smart-reviewer/issues)
-- 📖 文档: [在线文档](https://smart-reviewer.com/docs)
+- 📧 邮箱: zlife@vip.qq.com
+- 🐛 问题反馈: [GitHub Issues](https://github.com/vlinr/smart-review/issues)
 
 ---
 
