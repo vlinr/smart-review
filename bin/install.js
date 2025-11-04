@@ -144,11 +144,8 @@ class Installer {
 
     const preCommitHook = path.join(gitHooksDir, 'pre-commit');
     
-    // 获取项目根目录的绝对路径
-    const projectRootAbsolute = path.resolve(this.projectRoot);
-    
     const hookContent = `#!/bin/bash
-# 智能代码审查 - pre-commit钩子
+# 智能代码审查 - pre-commit钩子（子项目兼容，基于暂存文件逐层定位）
 
 echo "🔍 启动代码审查..."
 
@@ -165,31 +162,54 @@ echo "$STAGED_FILES"
 
 # 运行代码审查（定位到仓库根目录）
 REPO_ROOT=$(git rev-parse --show-toplevel)
-cd "$REPO_ROOT"
+cd "$REPO_ROOT" || { echo "❌ 无法进入仓库根目录"; exit 1; }
 
-# 优先使用本地安装的 CLI
-LOCAL_BIN="$REPO_ROOT/node_modules/.bin/smart-review"
-if [ -f "$LOCAL_BIN" ]; then
-  "$LOCAL_BIN" --staged
+# 优先使用仓库根目录安装的 CLI
+ROOT_BIN="$REPO_ROOT/node_modules/.bin/smart-review"
+
+FOUND_CMD=""
+FOUND_IS_ENTRY=0
+
+if [ -f "$ROOT_BIN" ]; then
+  FOUND_CMD="$ROOT_BIN"
 else
-  # 如果 PATH 中已有全局 smart-review，直接使用
-  if command -v smart-review >/dev/null 2>&1; then
-    smart-review --staged
-  else
-    # 使用 npx（不安装新包）调用本地版本
-    if command -v npx >/dev/null 2>&1; then
-      npx --no-install smart-review --staged
-    else
-      # 兜底：直接调用包入口脚本
-      ENTRY="$REPO_ROOT/node_modules/smart-reviewer/bin/review.js"
-      if [ -f "$ENTRY" ]; then
-        node "$ENTRY" --staged
-      else
-        echo "❌ 未找到 smart-review 可执行文件。请在项目中安装 smart-reviewer (npm i -D smart-reviewer)"
-        exit 1
+  # 基于暂存文件的路径，逐层向上查找其子项目的 node_modules
+  # 限制最大向上层级，避免卡住
+  MAX_ASCEND=6
+  while IFS= read -r file; do
+    [ -z "$file" ] && continue
+    dir=$(dirname "$file")
+    depth=0
+    while [ "$dir" != "." ] && [ $depth -lt $MAX_ASCEND ]; do
+      candidate_bin="$REPO_ROOT/$dir/node_modules/.bin/smart-review"
+      candidate_entry="$REPO_ROOT/$dir/node_modules/smart-review/bin/review.js"
+      if [ -f "$candidate_bin" ]; then
+        FOUND_CMD="$candidate_bin"; FOUND_IS_ENTRY=0; break 2
+      elif [ -f "$candidate_entry" ]; then
+        FOUND_CMD="$candidate_entry"; FOUND_IS_ENTRY=1; break 2
       fi
-    fi
-  fi
+      dir=$(dirname "$dir")
+      depth=$((depth + 1))
+    done
+  done <<< "$STAGED_FILES"
+fi
+
+# 额外兜底：PATH 中的全局 smart-review
+if [ -z "$FOUND_CMD" ] && command -v smart-review >/dev/null 2>&1; then
+  FOUND_CMD="smart-review"; FOUND_IS_ENTRY=0
+fi
+
+if [ -z "$FOUND_CMD" ]; then
+  echo "❌ 未找到 smart-review。请在对应子项目安装：npm i -D smart-review"
+  echo "   或在仓库根安装供统一使用：npm i -D smart-review"
+  exit 1
+fi
+
+echo "⚙️  使用命令: $FOUND_CMD --staged"
+if [ $FOUND_IS_ENTRY -eq 1 ]; then
+  node "$FOUND_CMD" --staged
+else
+  "$FOUND_CMD" --staged
 fi
 
 EXIT_CODE=$?
