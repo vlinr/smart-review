@@ -221,7 +221,6 @@ else
   exit 0
 fi
 `;
-
     fs.writeFileSync(preCommitHook, hookContent);
     
     // 设置执行权限
