@@ -1,5 +1,7 @@
 # Smart Review
 
+> 语言 / Language: [中文](README.md) | [English](README.en-US.md)
+
 🚀 **AI智能代码审查工具** - 结合静态规则检测和AI智能分析，为你的代码提供全方位的安全和质量审查。
 
 ## ✨ 特性
@@ -441,36 +443,45 @@ Smart Reviewer 采用智能分批处理技术，能够高效处理超大文件�
 ```json
 {
   "ai": {
-    "maxRequestTokens": 8000,      // 单次请求最大token数
-    "maxChunkSizeKB": 400,         // 单个分段最大大小
-    "chunkOverlapLines": 20        // 分段重叠行数
+    "maxRequestTokens": 8000,      // 单次请求最大 token 数
+    "chunkOverlapLines": 5,        // 分段重叠行数
+    "minFilesPerBatch": 1,         // 每批次最少文件数
+    "maxFilesPerBatch": 10         // 每批次最多文件数
   }
 }
 ```
 
 #### 性能优化建议
 
-1. **合理设置分段大小**
+1. **合理设置批处理参数**
    ```json
    {
-     "maxChunkSizeKB": 300,  // 较小的分段，更快的响应
-     "chunkOverlapLines": 15 // 适中的重叠，平衡上下文和性能
+     "ai": {
+       "maxRequestTokens": 6000,
+       "chunkOverlapLines": 10,
+       "minFilesPerBatch": 1,
+       "maxFilesPerBatch": 5
+     }
    }
    ```
 
 2. **启用并发处理**
    ```json
    {
-     "concurrency": 3,        // 并发AI请求数量，提升处理速度
-     "maxFilesPerBatch": 5    // 控制批次文件数
+     "ai": {
+       "concurrency": 3,        // 并发 AI 请求数量
+       "maxFilesPerBatch": 5    // 控制批次文件数
+     }
    }
    ```
 
-3. **启用智能分批**
+3. **调整智能分批参数**
    ```json
    {
-     "enableSmartBatching": true,
-     "maxFilesPerBatch": 5    // 控制并发文件数
+     "ai": {
+       "minFilesPerBatch": 1,
+       "maxFilesPerBatch": 5
+     }
    }
    ```
 
@@ -551,11 +562,38 @@ const reviewer = new CodeReviewer(customConfig, defaultRules);
 ```bash
 # OpenAI API配置
 export OPENAI_API_KEY="your-api-key"
-export OPENAI_BASE_URL="https://api.openai.com/v1"
 
 # 调试模式
 export DEBUG_SMART_REVIEW=true
+
+# 国际化（i18n）
+# Windows PowerShell（当前会话）
+$env:SMART_REVIEW_LOCALE='zh-CN'  # 或 'en-US'
+
+# macOS/Linux bash
+export SMART_REVIEW_LOCALE=zh-CN  # 或 en-US
 ```
+
+如果需要使用自定义的 OpenAI 兼容服务，请在项目的配置文件中设置 `ai.baseURL`：
+
+```json
+{
+  "ai": { "baseURL": "https://api.openai.com/v1" }
+}
+```
+
+## 🌍 国际化 (i18n)
+
+- 配置项 `locale`：在 `.smart-review/smart-review.json` 顶层设置输出与模板语言，支持 `zh-CN`、`en-US`。示例：`{"locale": "en-US"}`。
+- 环境变量 `SMART_REVIEW_LOCALE`：优先级最高，安装和复制模板时将按该值选择语言目录。
+- 选择优先级：环境变量 > 项目配置 `.smart-review/smart-review.json` > 模板默认配置 `templates/smart-review.json` > `zh-CN`。
+- 模板目录结构：`templates/rules/<locale>/security.js|performance.js|best-practices.js`；当指定语言缺失某文件时自动回退到 `zh-CN`。
+- 控制台与 Git 钩子提示会随 `locale` 切换语言，无需额外配置。
+- 切换示例：
+  - PowerShell：`$env:SMART_REVIEW_LOCALE='en-US'; node bin/install.js`
+  - Bash：`export SMART_REVIEW_LOCALE=en-US && node bin/install.js`
+
+如需新增语言（例如 `ja-JP`），在 `templates/rules/ja-JP/` 下添加三类规则模板文件，并在配置中设置 `"locale": "ja-JP"` 或通过环境变量切换即可。
 
 ## 🔧 命令行参数
 
@@ -563,33 +601,32 @@ export DEBUG_SMART_REVIEW=true
 smart-review [options]
 
 选项:
-  --staged              审查Git暂存区文件
-  --files <files>       审查指定文件 (逗号分隔)
-  --ai                  强制启用AI分析
-  --no-ai               禁用AI分析
-  --diff-only           强制启用Git Diff增量审查模式
-  --full-file           禁用增量审查，审查完整文件内容
-  --config <path>       指定配置文件路径
-  --rules <path>        指定规则目录路径
-  --output <format>     输出格式 (text|json)
-  --verbose             详细输出
-  --help                显示帮助信息
+  --staged              审查 Git 暂存区文件
+  --files <files>       审查指定文件（逗号分隔）
+  --ai                  强制启用 AI 分析
+  --no-ai               禁用 AI 分析
+  --diff-only           仅审查变更行（Git Diff 模式）
+  --debug               输出调试日志
 ```
 
-**增量审查相关参数说明：**
-- `--diff-only`: 强制启用Git Diff增量审查模式，覆盖配置文件中的`reviewOnlyChanges`设置
-- `--full-file`: 禁用增量审查，审查完整文件内容，适用于需要全面审查的场景
+**增量审查相关说明：**
+- `--diff-only`：仅审查变更行（Git Diff 模式），覆盖配置项 `ai.reviewOnlyChanges`
+- 禁用增量审查：在 `.smart-review/smart-review.json` 将 `ai.reviewOnlyChanges` 设为 `false`，适用于需要全面审查的场景
 
 **使用示例：**
 ```bash
 # 强制使用增量审查模式
 smart-review --staged --diff-only
 
-# 强制审查完整文件内容
-smart-review --files src/important.js --full-file
+# 审查完整文件内容（在配置中关闭增量）
+# .smart-review/smart-review.json
+{
+  "ai": { "reviewOnlyChanges": false }
+}
+smart-review --files src/important.js
 
 # 结合其他参数使用
-smart-review --staged --diff-only --verbose
+smart-review --staged --diff-only --debug
 ```
 
 ## 🚀 CI/CD 集成
@@ -649,13 +686,13 @@ code_review:
    **解决方案**: 检查 `OPENAI_API_KEY` 环境变量或配置文件中的密钥
 
 4. **大文件处理超时**
-   ```
-   ❌ 文件分析超时
-   ```
-   **解决方案**: 
-   - 减小 `maxChunkSizeKB` 配置值
-   - 增加 `chunkOverlapLines` 以减少分段数量
-   - 检查网络连接稳定性
+  ```
+  ❌ 文件分析超时
+  ```
+  **解决方案**: 
+  - 降低 `ai.maxRequestTokens` 或减少批次文件数（`maxFilesPerBatch`），并适当降低 `chunkOverlapLines`
+  - 增加 `chunkOverlapLines` 以减少分段数量
+  - 检查网络连接稳定性
 
 5. **分段分析结果不完整**
    ```
@@ -667,28 +704,30 @@ code_review:
    - 调整 `maxRequestTokens` 配置
 
 6. **内存占用过高**
-   ```
-   ❌ 内存不足错误
-   ```
-   **解决方案**:
-   - 减少 `maxFilesPerBatch` 配置值
-   - 启用 `enableSmartBatching` 智能分批
-   - 添加更多文件到 `ignoreFiles` 列表
+  ```
+  ❌ 内存不足错误
+  ```
+  **解决方案**:
+  - 减少 `maxFilesPerBatch` 配置值
+  - 调整 `minFilesPerBatch`/`maxFilesPerBatch` 控制每批文件数量
+  - 添加更多文件到 `ignoreFiles` 列表
 
 7. **Token 限制错误**
-   ```
-   ❌ Request too large
-   ```
-   **解决方案**:
-   - 降低 `maxRequestTokens` 配置值
-   - 减小 `maxChunkSizeKB` 分段大小
-   - 检查是否有超大的单行代码
+  ```
+  ❌ Request too large
+  ```
+  **解决方案**:
+  - 降低 `maxRequestTokens` 配置值
+  - 减少每批文件数量或启用增量审查 `--diff-only`
+  - 检查是否有超大的单行代码
 
 ### 调试模式
 
-启用详细日志：
+启用调试日志：
 ```bash
-DEBUG_SMART_REVIEW=true smart-review --staged --verbose
+DEBUG_SMART_REVIEW=true smart-review --staged
+# 或
+smart-review --staged --debug
 ```
 
 ## 🤝 贡献

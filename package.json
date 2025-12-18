@@ -1,6 +1,6 @@
 {
   "name": "smart-review",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "AI智能代码审查工具，支持静态规则和AI分析",
   "type": "module",
   "main": "index.js",
@@ -16,16 +16,8 @@
     "debug": "node --inspect ./bin/review.js --files test/src/test-file.js"
   },
   "keywords": ["code-review", "ai", "git-hook", "security"],
-  "author": "vlinr",
+  "author": "",
   "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/vlinr/smart-review.git"
-  },
-  "homepage": "https://github.com/vlinr/smart-review#readme",
-  "bugs": {
-    "url": "https://github.com/vlinr/smart-review/issues"
-  },
   "dependencies": {
     "chalk": "^5.3.0",
     "glob": "^10.3.10",

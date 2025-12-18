@@ -6,6 +6,7 @@ import { fileURLToPath } from 'url';
 import { execSync } from 'child_process';
 import { logger } from '../lib/utils/logger.js';
 import { FILE_PERMISSIONS, BATCH_CONSTANTS } from '../lib/utils/constants.js';
+import { t } from '../lib/utils/i18n.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -19,12 +20,12 @@ class Installer {
 
   findGitRoot() {
     let currentDir = process.cwd();
-    logger.debug(`查找Git根目录，从 ${currentDir} 开始...`);
+    logger.debug(t(process.env.SMART_REVIEW_LOCALE || 'zh-CN', 'install_search_git_root_dbg', { dir: currentDir }));
 
     for (let i = 0; i < BATCH_CONSTANTS.MAX_DIRECTORY_SEARCH_DEPTH; i++) {
       const gitDir = path.join(currentDir, '.git');
       if (fs.existsSync(gitDir)) {
-        logger.success(`找到Git根目录: ${currentDir}`);
+        logger.success(t(process.env.SMART_REVIEW_LOCALE || 'zh-CN', 'install_found_git_root_success', { dir: currentDir }));
         return currentDir;
       }
 
@@ -35,25 +36,25 @@ class Installer {
       currentDir = parentDir;
     }
 
-    logger.info('ℹ️  未找到.git目录，使用当前目录作为项目根目录');
+    logger.info(t(process.env.SMART_REVIEW_LOCALE || 'zh-CN', 'install_no_git_use_current'));
     return process.cwd();
   }
 
-  install() {
-    logger.info('🚀 开始安装智能代码审查系统...');
+  async install() {
+    logger.info(t(process.env.SMART_REVIEW_LOCALE || 'zh-CN', 'install_start'));
 
     try {
       this.createReviewDirectory();
-      this.copyTemplateFiles();
+      await this.copyTemplateFiles();
       this.installGitHooks();
       this.showNextSteps();
 
-      logger.success('\n🎉 智能代码审查系统安装完成！');
-      logger.info('💡 系统已内置默认配置和规则，无需额外配置即可使用');
-      logger.info('📝 如需自定义，请编辑 .smart-review/ 目录下的配置文件');
+      logger.success('\n' + t(process.env.SMART_REVIEW_LOCALE || 'zh-CN', 'install_done_success'));
+      logger.info(t(process.env.SMART_REVIEW_LOCALE || 'zh-CN', 'install_bundled_info'));
+      logger.info(t(process.env.SMART_REVIEW_LOCALE || 'zh-CN', 'install_customize_tip'));
       
     } catch (error) {
-      logger.error('安装失败:', error);
+      logger.error(t(process.env.SMART_REVIEW_LOCALE || 'zh-CN', 'install_failed', { error: error.message }));
       process.exit(1);
     }
   }
@@ -61,25 +62,25 @@ class Installer {
   createReviewDirectory() {
     if (!fs.existsSync(this.reviewDir)) {
       fs.mkdirSync(this.reviewDir, { recursive: true });
-      logger.success('创建 .smart-review 目录');
+      logger.success(t(process.env.SMART_REVIEW_LOCALE || 'zh-CN', 'install_create_review_dir'));
     }
 
     // 创建AI提示词子目录（用于AI自定义提示）
     const aiPromptsDir = path.join(this.reviewDir, 'ai-rules');
     if (!fs.existsSync(aiPromptsDir)) {
       fs.mkdirSync(aiPromptsDir, { recursive: true });
-      logger.success('创建 ai-rules 子目录（AI提示词）');
+      logger.success(t(process.env.SMART_REVIEW_LOCALE || 'zh-CN', 'install_create_ai_rules_dir'));
     }
 
     // 创建本地静态规则目录
     const localRulesDir = path.join(this.reviewDir, 'local-rules');
     if (!fs.existsSync(localRulesDir)) {
       fs.mkdirSync(localRulesDir, { recursive: true });
-      logger.success('创建 local-rules 子目录（静态规则）');
+      logger.success(t(process.env.SMART_REVIEW_LOCALE || 'zh-CN', 'install_create_local_rules_dir'));
     }
   }
 
-  copyTemplateFiles() {
+  async copyTemplateFiles() {
     // 将模板源路径（templates 下）映射到目标路径（.smart-review 下）
     const templatesMap = [
       { src: 'smart-review.json', dest: 'smart-review.json', description: '主配置文件' },
@@ -87,9 +88,25 @@ class Installer {
       { src: 'rules/performance.js', dest: 'local-rules/performance.js', description: '性能规则' },
       { src: 'rules/best-practices.js', dest: 'local-rules/best-practices.js', description: '最佳实践规则' }
     ];
+    
+    // 根据 locale 选择模板目录（优先 rules/<locale>/，否则回退到 rules/zh-CN/）
+    const loc = await this.resolveLocale();
 
     for (const { src, dest, description } of templatesMap) {
-      const templatePath = path.join(this.templatesDir, src);
+      let effectiveSrc = src;
+      if (src.startsWith('rules/')) {
+        const fileName = path.basename(src);
+        const candidateRel = path.join('rules', loc, fileName);
+        const candidateAbs = path.join(this.templatesDir, candidateRel);
+        const fallbackRel = path.join('rules', 'zh-CN', fileName);
+        const fallbackAbs = path.join(this.templatesDir, fallbackRel);
+        if (fs.existsSync(candidateAbs)) {
+          effectiveSrc = candidateRel;
+        } else if (fs.existsSync(fallbackAbs)) {
+          effectiveSrc = fallbackRel;
+        }
+      }
+      const templatePath = path.join(this.templatesDir, effectiveSrc);
       const targetPath = path.join(this.reviewDir, dest);
 
       if (fs.existsSync(templatePath) && !fs.existsSync(targetPath)) {
@@ -98,11 +115,108 @@ class Installer {
         if (!fs.existsSync(targetDir)) {
           fs.mkdirSync(targetDir, { recursive: true });
         }
-
-        fs.copyFileSync(templatePath, targetPath);
-        logger.success(`创建 ${description}`);
+        // smart-review.json 原样复制；规则文件按 locale 生成本地化版本
+        if (src === 'smart-review.json') {
+          fs.copyFileSync(templatePath, targetPath);
+        } else {
+          try {
+            const content = await this.buildLocalizedRuleModule(templatePath);
+            fs.writeFileSync(targetPath, content, 'utf8');
+          } catch (e) {
+            // 失败时退回直接复制原模板
+            fs.copyFileSync(templatePath, targetPath);
+          }
+        }
+        logger.success(t(process.env.SMART_REVIEW_LOCALE || 'zh-CN', 'install_create_template_success', { desc: description }));
       }
     }
+  }
+
+  async resolveLocale() {
+    // 解析语言优先级：环境变量 > 已复制的项目配置 > 模板默认配置 > zh-CN
+    let loc = process.env.SMART_REVIEW_LOCALE || '';
+    if (!loc) {
+      try {
+        const projectCfg = path.join(this.reviewDir, 'smart-review.json');
+        if (fs.existsSync(projectCfg)) {
+          const cfg = JSON.parse(fs.readFileSync(projectCfg, 'utf8'));
+          if (cfg && typeof cfg.locale === 'string' && cfg.locale.trim()) {
+            loc = cfg.locale.trim();
+          }
+        }
+      } catch (e) {
+        // 忽略读取失败，继续尝试模板配置
+      }
+    }
+    if (!loc) {
+      try {
+        const templateCfg = path.join(this.templatesDir, 'smart-review.json');
+        if (fs.existsSync(templateCfg)) {
+          const cfg = JSON.parse(fs.readFileSync(templateCfg, 'utf8'));
+          if (cfg && typeof cfg.locale === 'string' && cfg.locale.trim()) {
+            loc = cfg.locale.trim();
+          }
+        }
+      } catch (e) {
+        // 忽略读取失败
+      }
+    }
+    if (!loc) loc = 'zh-CN';
+    return loc;
+  }
+
+  async buildLocalizedRuleModule(templatePath) {
+    // 解析语言优先级：环境变量 > 已复制的项目配置 > 模板默认配置 > zh-CN
+    let loc = process.env.SMART_REVIEW_LOCALE || '';
+    if (!loc) {
+      try {
+        const projectCfg = path.join(this.reviewDir, 'smart-review.json');
+        if (fs.existsSync(projectCfg)) {
+          const cfg = JSON.parse(fs.readFileSync(projectCfg, 'utf8'));
+          if (cfg && typeof cfg.locale === 'string' && cfg.locale.trim()) {
+            loc = cfg.locale.trim();
+          }
+        }
+      } catch (e) {
+        // 忽略读取失败，继续尝试模板配置
+      }
+    }
+    if (!loc) {
+      try {
+        const templateCfg = path.join(this.templatesDir, 'smart-review.json');
+        if (fs.existsSync(templateCfg)) {
+          const cfg = JSON.parse(fs.readFileSync(templateCfg, 'utf8'));
+          if (cfg && typeof cfg.locale === 'string' && cfg.locale.trim()) {
+            loc = cfg.locale.trim();
+          }
+        }
+      } catch (e) {
+        // 忽略读取失败
+      }
+    }
+    if (!loc) loc = 'zh-CN';
+    const fileUrl = `file://${templatePath.replace(/\\/g, '/')}`;
+    const mod = await import(fileUrl);
+    const rules = Array.isArray(mod?.default) ? mod.default : (Array.isArray(mod?.rules) ? mod.rules : []);
+    const localized = rules.map((r) => {
+      const id = r?.id;
+      if (!id) return r;
+      const nameKey = `rule_${id}_name`;
+      const msgKey = `rule_${id}_message`;
+      const sugKey = `rule_${id}_suggestion`;
+      const name = t(loc, nameKey);
+      const message = t(loc, msgKey);
+      const suggestion = t(loc, sugKey);
+      return {
+        ...r,
+        name: (typeof name === 'string' && name !== nameKey) ? name : r.name,
+        message: (typeof message === 'string' && message !== msgKey) ? message : r.message,
+        suggestion: (typeof suggestion === 'string' && suggestion !== sugKey) ? suggestion : r.suggestion,
+      };
+    });
+    // 生成ESM模块内容
+    const json = JSON.stringify(localized, null, 2);
+    return `// Generated by smart-review install (locale: ${loc})\nexport default ${json};\n`;
   }
 
   installGitHooks() {
@@ -116,7 +230,7 @@ class Installer {
     }
 
     if (!gitAvailable) {
-      logger.error('未检测到 Git，请先安装后重试： https://git-scm.com/downloads');
+      logger.error(t(process.env.SMART_REVIEW_LOCALE || 'zh-CN', 'install_git_missing', { url: 'https://git-scm.com/downloads' }));
       process.exit(1);
     }
 
@@ -124,11 +238,11 @@ class Installer {
     const gitDir = path.join(this.projectRoot, '.git');
     // review-disable-start
     if (!fs.existsSync(gitDir)) {
-      logger.warn('未检测到 .git 目录，正在初始化 Git 仓库...');
+      logger.warn(t(process.env.SMART_REVIEW_LOCALE || 'zh-CN', 'install_init_git_warn'));
       try {
         execSync('git init', { cwd: this.projectRoot, stdio: 'ignore' });
       } catch (e) {
-        logger.error('Git 仓库初始化失败，请手动执行 `git init` 后重试');
+        logger.error(t(process.env.SMART_REVIEW_LOCALE || 'zh-CN', 'install_init_git_failed'));
         process.exit(1);
       }
     }
@@ -144,27 +258,27 @@ class Installer {
 
     const preCommitHook = path.join(gitHooksDir, 'pre-commit');
     
-    const hookContent = `#!/bin/bash
-# 智能代码审查 - pre-commit钩子（子项目兼容，基于暂存文件逐层定位）
+    const loc = process.env.SMART_REVIEW_LOCALE || 'zh-CN';
+    const hookContent = `#!/usr/bin/env bash
+# ${t(loc, 'hook_header_comment')}
 
-echo "🔍 启动代码审查..."
+echo "${t(loc, 'hook_start_review')}"
 
 # 获取暂存区文件
 STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM)
 
 if [ -z "$STAGED_FILES" ]; then
-  echo "📭 没有暂存的文件需要审查"
+  echo "${t(loc, 'hook_no_staged')}"
   exit 0
 fi
 
-echo "📁 发现暂存文件:"
+echo "${t(loc, 'hook_found_staged_header')}"
 echo "$STAGED_FILES"
 
 # 运行代码审查（定位到仓库根目录）
 REPO_ROOT=$(git rev-parse --show-toplevel)
-cd "$REPO_ROOT" || { echo "❌ 无法进入仓库根目录"; exit 1; }
+cd "$REPO_ROOT" || { echo "${t(loc, 'hook_cd_repo_fail')}"; exit 1; }
 
-# 优先使用仓库根目录安装的 CLI
 ROOT_BIN="$REPO_ROOT/node_modules/.bin/smart-review"
 
 FOUND_CMD=""
@@ -173,8 +287,6 @@ FOUND_IS_ENTRY=0
 if [ -f "$ROOT_BIN" ]; then
   FOUND_CMD="$ROOT_BIN"
 else
-  # 基于暂存文件的路径，逐层向上查找其子项目的 node_modules
-  # 限制最大向上层级，避免卡住
   MAX_ASCEND=6
   while IFS= read -r file; do
     [ -z "$file" ] && continue
@@ -194,18 +306,17 @@ else
   done <<< "$STAGED_FILES"
 fi
 
-# 额外兜底：PATH 中的全局 smart-review
 if [ -z "$FOUND_CMD" ] && command -v smart-review >/dev/null 2>&1; then
   FOUND_CMD="smart-review"; FOUND_IS_ENTRY=0
 fi
 
 if [ -z "$FOUND_CMD" ]; then
-  echo "❌ 未找到 smart-review。请在对应子项目安装：npm i -D smart-review"
-  echo "   或在仓库根安装供统一使用：npm i -D smart-review"
+  echo "${t(loc, 'hook_cmd_not_found1')}"
+  echo "${t(loc, 'hook_cmd_not_found2')}"
   exit 1
 fi
 
-echo "⚙️  使用命令: $FOUND_CMD --staged"
+echo "${t(loc, 'hook_use_command_prefix')} $FOUND_CMD --staged"
 if [ $FOUND_IS_ENTRY -eq 1 ]; then
   node "$FOUND_CMD" --staged
 else
@@ -214,21 +325,40 @@ fi
 
 EXIT_CODE=$?
 if [ $EXIT_CODE -ne 0 ]; then
-  echo "❌ 代码审查未通过，请修复问题后重新提交"
+  echo "${t(loc, 'hook_review_fail')}"
   exit 1
 else
-  echo "✅ 代码审查通过，继续提交"
+  echo "${t(loc, 'hook_review_pass')}"
   exit 0
 fi
 `;
+
     fs.writeFileSync(preCommitHook, hookContent);
+    // Windows 兼容：提供 CMD 包装器，调用 bash 执行同名脚本
+    try {
+      const preCommitCmd = path.join(gitHooksDir, 'pre-commit.cmd');
+      const cmdContent = [
+        '@echo off',
+        'SETLOCAL',
+        'set HOOK=%~dp0pre-commit',
+        'if not exist "%HOOK%" (',
+        '  echo [smart-review] pre-commit hook missing.',
+        '  exit /b 1',
+        ')',
+        'bash "%HOOK%"',
+        'exit /b %ERRORLEVEL%\r\n'
+      ].join('\r\n');
+      fs.writeFileSync(preCommitCmd, cmdContent);
+    } catch (e) {
+      // 忽略 CMD 包装器写入失败
+    }
     
     // 设置执行权限
     try {
       fs.chmodSync(preCommitHook, FILE_PERMISSIONS.EXECUTABLE);
-      logger.success('安装 pre-commit Git钩子');
+      logger.success(t(process.env.SMART_REVIEW_LOCALE || 'zh-CN', 'install_precommit_installed_success'));
     } catch (error) {
-      logger.warn('无法设置执行权限，但钩子文件已创建');
+      logger.warn(t(process.env.SMART_REVIEW_LOCALE || 'zh-CN', 'install_precommit_perm_warn'));
     }
     
     // 测试钩子是否能正常执行
@@ -236,45 +366,52 @@ fi
   }
 
   testHook(hookPath) {
-    logger.info('🧪 测试Git钩子...');
+    logger.info(t(process.env.SMART_REVIEW_LOCALE || 'zh-CN', 'install_test_hook'));
     
     // 检查文件是否存在且可执行
     if (!fs.existsSync(hookPath)) {
-      logger.error('钩子文件不存在');
+      logger.error(t(process.env.SMART_REVIEW_LOCALE || 'zh-CN', 'install_hook_missing'));
       return;
     }
     
     try {
+      // 在 Windows 上无需检查可执行位，直接提示成功
+      if (process.platform === 'win32') {
+        logger.success(t(process.env.SMART_REVIEW_LOCALE || 'zh-CN', 'install_test_hook_success'));
+        return;
+      }
       const stats = fs.statSync(hookPath);
       const isExecutable = !!(stats.mode & 0o111);
-      logger.debug(`钩子文件权限: ${stats.mode.toString(8)}, 可执行: ${isExecutable}`);
-      
+      logger.debug(t(process.env.SMART_REVIEW_LOCALE || 'zh-CN', 'install_hook_perm_dbg', { mode: stats.mode.toString(8), exec: isExecutable }));
       if (!isExecutable) {
-        logger.warn('钩子文件不可执行，尝试重新设置权限...');
+        logger.warn(t(process.env.SMART_REVIEW_LOCALE || 'zh-CN', 'install_hook_perm_fix_warn'));
         fs.chmodSync(hookPath, FILE_PERMISSIONS.EXECUTABLE);
       }
+      // POSIX 环境下权限检查完成，提示成功
+      logger.success(t(process.env.SMART_REVIEW_LOCALE || 'zh-CN', 'install_test_hook_success'));
     } catch (error) {
-      logger.warn('无法检查钩子文件权限:', error.message);
+      logger.warn(t(process.env.SMART_REVIEW_LOCALE || 'zh-CN', 'install_hook_perm_check_failed', { error: error.message }));
     }
   }
 
   showNextSteps() {
-    logger.info('\n📝 可选配置:');
-    logger.info('   1. 编辑 .smart-review/smart-review.json 配置AI参数和风险等级');
-    logger.info('   2. 在 .smart-review/local-rules/ 目录添加静态规则文件');
-    logger.info('   3. 在 .smart-review/ai-rules/ 目录添加AI提示词文件');
-    logger.info('   4. 设置 OPENAI_API_KEY 环境变量启用AI审查');
-    logger.info('\n⚙️  配置文件位置:');
+    logger.info('\n' + t(process.env.SMART_REVIEW_LOCALE || 'zh-CN', 'install_optional_header'));
+    logger.info('   ' + t(process.env.SMART_REVIEW_LOCALE || 'zh-CN', 'install_optional_item1'));
+    logger.info('   ' + t(process.env.SMART_REVIEW_LOCALE || 'zh-CN', 'install_optional_item2'));
+    logger.info('   ' + t(process.env.SMART_REVIEW_LOCALE || 'zh-CN', 'install_optional_item3'));
+    logger.info('   ' + t(process.env.SMART_REVIEW_LOCALE || 'zh-CN', 'install_optional_item4'));
+
+    logger.info('\n' + t(process.env.SMART_REVIEW_LOCALE || 'zh-CN', 'install_paths_header'));
     logger.info(`   ${path.join(this.reviewDir, 'smart-review.json')}`);
-    logger.info(`   静态规则: ${path.join(this.reviewDir, 'local-rules/')}`);
-    logger.info(`   AI提示词: ${path.join(this.reviewDir, 'ai-rules/')}`);
+    logger.info('   ' + t(process.env.SMART_REVIEW_LOCALE || 'zh-CN', 'install_local_rules_path', { path: path.join(this.reviewDir, 'local-rules/') }));
+    logger.info('   ' + t(process.env.SMART_REVIEW_LOCALE || 'zh-CN', 'install_ai_rules_path', { path: path.join(this.reviewDir, 'ai-rules/') }));
     
-    logger.info('\n🔧 测试命令:');
-    logger.info('   git add . && git commit -m "test"  # 测试提交触发审查');
-    logger.info('   npx smart-review --files test/src/test-file.js  # 手动测试审查（使用项目内CLI）');
+    logger.info('\n' + t(process.env.SMART_REVIEW_LOCALE || 'zh-CN', 'install_test_header'));
+    logger.info('   ' + t(process.env.SMART_REVIEW_LOCALE || 'zh-CN', 'install_test_git_commit'));
+    logger.info('   ' + t(process.env.SMART_REVIEW_LOCALE || 'zh-CN', 'install_test_cli'));
   }
 }
 
 // 运行安装
 const installer = new Installer();
-installer.install();
+(async () => { await installer.install(); })();

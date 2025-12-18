@@ -76,5 +76,6 @@
     "**/.env",
     "**/.env.*",
     "**/config/secrets.*"
-  ]
+  ],
+  "locale": "zh-CN"
 }
