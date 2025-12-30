@@ -313,7 +313,9 @@ fi
 if [ -z "$FOUND_CMD" ]; then
   echo "${t(loc, 'hook_cmd_not_found1')}"
   echo "${t(loc, 'hook_cmd_not_found2')}"
-  exit 1
+  echo "${t(loc, 'hook_cmd_missing_continue')}"
+  # 未安装 smart-review，跳过自动审查但不阻断提交
+  exit 0
 fi
 
 echo "${t(loc, 'hook_use_command_prefix')} $FOUND_CMD --staged"

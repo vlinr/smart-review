@@ -1,6 +1,6 @@
 {
   "name": "smart-review",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "AI智能代码审查工具，支持静态规则和AI分析",
   "type": "module",
   "main": "index.js",

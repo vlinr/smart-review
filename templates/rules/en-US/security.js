@@ -8,6 +8,7 @@ export default [
     message: 'Hard-coded password or secret detected',
     suggestion: 'Use environment variables or a secure secret manager',
     flags: 'gi',
+    extensions: ['.js', '.ts', '.py', '.java', '.php', '.rb', '.cs'],
     excludePatterns: ['//.*', '/\\*[\\s\\S]*?\\*/', '(example|test|demo|placeholder|xxx|123|abc|password|secret)']
   },
   {
@@ -17,7 +18,8 @@ export default [
     risk: 'critical',
     message: 'String-concatenated SQL detected; injection risk',
     suggestion: 'Use parameterized queries or the ORM’s safe APIs',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.js', '.ts', '.py', '.java', '.php', '.rb', '.cs']
   },
   {
     id: 'SEC003',
@@ -26,7 +28,8 @@ export default [
     risk: 'high',
     message: 'Direct HTML manipulation detected; possible XSS',
     suggestion: 'Use textContent or safe DOM APIs',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.js', '.ts']
   },
   {
     id: 'SEC004',
@@ -35,7 +38,8 @@ export default [
     risk: 'critical',
     message: 'Command execution with possible user input detected',
     suggestion: 'Avoid constructing commands from user input; validate strictly',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.js', '.ts']
   }
 ,
   {
@@ -45,7 +49,8 @@ export default [
     risk: 'high',
     message: 'Potential path traversal or unvalidated file path usage',
     suggestion: 'Normalize and whitelist paths; never concatenate untrusted input',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.js', '.ts', '.java', '.php', '.py']
   },
   {
     id: 'SEC006',
@@ -54,7 +59,8 @@ export default [
     risk: 'high',
     message: 'HTTP request with certificate verification disabled detected',
     suggestion: 'Enable verification and use trusted CAs; avoid MITM attacks',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.py']
   },
   {
     id: 'SEC007',
@@ -63,7 +69,8 @@ export default [
     risk: 'high',
     message: 'Detected use of weak algorithms such as MD5/SHA-1',
     suggestion: 'Use stronger algorithms: SHA-256/512, Argon2, bcrypt, scrypt',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.js', '.ts', '.java']
   },
   {
     id: 'SEC008',
@@ -72,7 +79,8 @@ export default [
     risk: 'high',
     message: 'Hard-coded secret or access token detected',
     suggestion: 'Store secrets in a manager or environment variables',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.js', '.ts', '.py', '.java', '.php', '.rb', '.cs']
   },
   {
     id: 'SEC009',
@@ -81,7 +89,8 @@ export default [
     risk: 'critical',
     message: 'Potentially unsafe deserialization detected',
     suggestion: 'Use safe methods (e.g., yaml.safe_load); never deserialize untrusted data',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.py', '.java', '.php']
   },
   {
     id: 'SEC010',
@@ -90,7 +99,8 @@ export default [
     risk: 'high',
     message: 'User-controlled URL request detected; SSRF risk',
     suggestion: 'Whitelist external URLs; prohibit access to internal addresses',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.js', '.ts', '.py']
   },
   {
     id: 'SEC011',
@@ -99,7 +109,8 @@ export default [
     risk: 'high',
     message: 'Possible NoSQL injection (dynamically concatenated conditions)',
     suggestion: 'Use parameterized queries or safe builders; avoid concatenation',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.js', '.ts', '.py', '.rb', '.php']
   },
   {
     id: 'SEC012',
@@ -108,7 +119,8 @@ export default [
     risk: 'high',
     message: 'User-controlled redirection detected; open-redirect risk',
     suggestion: 'Whitelist target URLs or fix them to safe destinations',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.js', '.ts', '.java']
   },
   {
     id: 'SEC013',
@@ -117,7 +129,8 @@ export default [
     risk: 'critical',
     message: 'System command execution detected; injection risk if user input involved',
     suggestion: 'Avoid direct system calls; use safe libraries or strict whitelists',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.py']
   },
   {
     id: 'SEC014',
@@ -126,7 +139,8 @@ export default [
     risk: 'medium',
     message: 'Non-cryptographic RNG used in security-sensitive contexts',
     suggestion: 'Use cryptographically secure RNGs (crypto.randomBytes, secrets.SystemRandom)',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.js', '.ts', '.py', '.java']
   },
   {
     id: 'SEC015',
@@ -135,7 +149,8 @@ export default [
     risk: 'high',
     message: 'Dynamic execution that may lead to code injection',
     suggestion: 'Avoid eval/Function; use safe parsing/mapping logic',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.js', '.ts']
   },
   {
     id: 'SEC016',
@@ -144,7 +159,8 @@ export default [
     risk: 'high',
     message: 'Direct assignment to object prototypes; may cause pollution',
     suggestion: 'Avoid merging untrusted data into prototypes; use safe merging',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.js', '.ts']
   },
   {
     id: 'SEC017',
@@ -153,7 +169,8 @@ export default [
     risk: 'critical',
     message: 'SQL execution built via string concatenation detected',
     suggestion: 'Use PreparedStatement with placeholders',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.java']
   },
   {
     id: 'SEC018',
@@ -162,7 +179,8 @@ export default [
     risk: 'high',
     message: 'Direct HTML injection detected; possible XSS',
     suggestion: 'Use text() or trusted templating with escaping',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.js']
   },
   {
     id: 'SEC019',
@@ -171,7 +189,8 @@ export default [
     risk: 'high',
     message: 'Setting wide-open file permissions detected',
     suggestion: 'Apply least privilege; avoid 777 and similar modes',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.php']
   },
   {
     id: 'SEC020',
@@ -180,7 +199,8 @@ export default [
     risk: 'critical',
     message: 'System command execution detected; injection risk with user input',
     suggestion: 'Avoid shell commands; use safe libraries and whitelist parameters',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.php', '.cs']
   },
   {
     id: 'SEC021',
@@ -189,7 +209,8 @@ export default [
     risk: 'high',
     message: 'TLS certificate verification disabled detected',
     suggestion: 'Enable verification and use trusted CA to avoid MITM',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.js', '.ts']
   },
   {
     id: 'SEC022',
@@ -198,7 +219,8 @@ export default [
     risk: 'medium',
     message: 'CORS allows "*"; may lead to cross-origin data leaks',
     suggestion: 'Only allow trusted origins; use tokens and fine-grained policy',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.js', '.ts']
   },
   {
     id: 'SEC023',
@@ -207,7 +229,8 @@ export default [
     risk: 'high',
     message: 'String-concatenated LDAP filters detected',
     suggestion: 'Build filters safely and bind parameters; avoid concatenation',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.java', '.py']
   },
   {
     id: 'SEC024',
@@ -216,7 +239,8 @@ export default [
     risk: 'high',
     message: 'XML parsing with external entities not disabled',
     suggestion: 'Disable external entities or use safe libraries (e.g., defusedxml)',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.py', '.java', '.php']
   },
   {
     id: 'SEC025',
@@ -225,7 +249,8 @@ export default [
     risk: 'high',
     message: 'Hostname verification bypass detected for HTTPS',
     suggestion: 'Implement strict hostname verification to avoid permissive behavior',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.java']
   },
   {
     id: 'SEC026',
@@ -234,7 +259,8 @@ export default [
     risk: 'critical',
     message: 'Global env disables certificate errors detected',
     suggestion: 'Remove the setting and use valid certs or isolate in test env',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.js', '.ts']
   },
   {
     id: 'SEC027',
@@ -243,7 +269,8 @@ export default [
     risk: 'high',
     message: 'Username/password hard-coded in connection string detected',
     suggestion: 'Use env variables or secure credential storage; avoid plaintext in code',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.js', '.ts', '.py', '.java', '.php', '.rb', '.cs']
   },
   {
     id: 'SEC028',
@@ -252,7 +279,8 @@ export default [
     risk: 'medium',
     message: 'Sensitive information logged',
     suggestion: 'Mask sensitive fields or avoid logging them altogether',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.js', '.ts', '.py', '.java', '.php', '.rb']
   },
   {
     id: 'SEC029',
@@ -261,7 +289,8 @@ export default [
     risk: 'high',
     message: 'Possible mass assignment risk; no whitelist validation',
     suggestion: 'Enable strong parameters/whitelist; only allow safe fields',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.rb', '.php']
   },
   {
     id: 'SEC030',
@@ -270,7 +299,8 @@ export default [
     risk: 'high',
     message: 'TLS certificate verification disabled in Go detected',
     suggestion: 'Enable verification and use trusted CA; avoid MITM attacks',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.go']
   },
   {
     id: 'SEC031',
@@ -279,7 +309,8 @@ export default [
     risk: 'high',
     message: 'Overriding global certificate validation; may accept any certificate',
     suggestion: 'Remove the override and use proper validation mechanisms',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.cs']
   },
   {
     id: 'SEC032',
@@ -288,7 +319,8 @@ export default [
     risk: 'critical',
     message: 'Using FromSqlRaw with string concatenation detected',
     suggestion: 'Use FromSqlInterpolated or parameterized queries to avoid injection',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.cs']
   },
   {
     id: 'SEC033',
@@ -297,7 +329,8 @@ export default [
     risk: 'high',
     message: 'System command execution in Go; injection risk if user input involved',
     suggestion: 'Avoid shell -c and concatenation; whitelist parameters and exec paths',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.go']
   },
   {
     id: 'SEC034',
@@ -306,6 +339,7 @@ export default [
     risk: 'medium',
     message: 'Using math/rand for randomness; not cryptographically secure',
     suggestion: 'Use crypto/rand or secure RNG libraries for tokens and keys',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.go']
   }
 ];

@@ -7,7 +7,8 @@ export default [
     risk: 'low',
     message: 'Debug code found; remove before committing',
     suggestion: 'Use a logging system instead of console.log',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.js', '.ts', '.py', '.php', '.rb']
   },
   {
     id: 'BP002',
@@ -16,7 +17,8 @@ export default [
     risk: 'low',
     message: 'Magic numbers detected; define them as constants',
     suggestion: 'Define numbers as meaningful constants',
-    flags: 'g'
+    flags: 'g',
+    extensions: ['.js', '.ts', '.java', '.cs', '.php', '.py', '.rb', '.go']
   },
   {
     id: 'BP003',
@@ -25,7 +27,8 @@ export default [
     risk: 'medium',
     message: 'Empty catch may hide errors and cause unpredictable behavior',
     suggestion: 'Log or take remedial actions instead of swallowing exceptions',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.js', '.ts', '.java', '.cs', '.php']
   },
   {
     id: 'BP004',
@@ -34,7 +37,8 @@ export default [
     risk: 'medium',
     message: 'Detected @ts-ignore; may conceal type errors',
     suggestion: 'Fix type issues or use precise type definitions',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.ts']
   },
   {
     id: 'BP005',
@@ -43,7 +47,8 @@ export default [
     risk: 'medium',
     message: 'Using any weakens type safety guarantees',
     suggestion: 'Use concrete types or generics to improve safety',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.ts']
   },
   {
     id: 'BP006',
@@ -52,7 +57,8 @@ export default [
     risk: 'medium',
     message: 'Disabling ESLint may hide code quality issues',
     suggestion: 'Disable locally only when necessary, and explain the reason',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.js', '.ts']
   },
   {
     id: 'BP007',
@@ -61,7 +67,8 @@ export default [
     risk: 'medium',
     message: 'Debugger statement found; may affect production behavior',
     suggestion: 'Remove debugger before commit; use logs or assertions',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.js', '.ts']
   },
   {
     id: 'BP008',
@@ -70,7 +77,8 @@ export default [
     risk: 'medium',
     message: 'Catching broad exception types without proper handling',
     suggestion: 'Catch specific types and ensure logging or rethrowing as needed',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.js', '.ts', '.java', '.cs', '.php']
   },
   {
     id: 'BP009',
@@ -79,7 +87,8 @@ export default [
     risk: 'medium',
     message: 'Direct stack printing may lose context and produce uncontrolled output',
     suggestion: 'Use structured logging with context information',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.java']
   },
   {
     id: 'BP010',
@@ -88,7 +97,8 @@ export default [
     risk: 'high',
     message: 'System.exit detected; may cause unexpected service termination',
     suggestion: 'Use graceful shutdown, signal handling, and resource cleanup',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.java']
   },
   {
     id: 'BP011',
@@ -97,7 +107,8 @@ export default [
     risk: 'medium',
     message: 'Using root as DB user introduces security and audit risks',
     suggestion: 'Use a least-privileged application account and separate duties',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.js', '.ts', '.java', '.cs', '.php', '.py', '.rb', '.go']
   },
   {
     id: 'BP012',
@@ -106,6 +117,7 @@ export default [
     risk: 'high',
     message: 'Globally disabling CSRF may cause CSRF vulnerabilities',
     suggestion: 'Use token/same-origin policies where needed; avoid global disable',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.java']
   }
 ];

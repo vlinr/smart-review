@@ -8,6 +8,7 @@ export default [
     message: '发现硬编码的密码或密钥',
     suggestion: '使用环境变量或安全的密钥管理服务',
     flags: 'gi',
+    extensions: ['.js', '.ts', '.java', '.cs', '.php', '.py', '.rb', '.go'],
     excludePatterns: ['//.*', '/\\*[\\s\\S]*?\\*/', '(example|test|demo|placeholder|xxx|123|abc|password|secret)']
   },
   {
@@ -17,7 +18,8 @@ export default [
     risk: 'critical',
     message: '发现字符串拼接SQL查询，存在SQL注入风险',
     suggestion: '使用参数化查询或ORM的安全方法',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.js', '.ts', '.java', '.cs', '.php', '.py', '.rb', '.go']
   },
   {
     id: 'SEC003',
@@ -26,7 +28,8 @@ export default [
     risk: 'high',
     message: '发现直接操作HTML内容，可能存在XSS风险',
     suggestion: '使用textContent或安全的DOM操作方法',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.js', '.ts']
   },
   {
     id: 'SEC004',
@@ -35,7 +38,8 @@ export default [
     risk: 'critical',
     message: '发现命令执行函数调用，且可能包含用户输入',
     suggestion: '避免使用用户输入构造命令，或进行严格的输入验证',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.js', '.ts']
   }
 ,
   {
@@ -45,7 +49,8 @@ export default [
     risk: 'high',
     message: '可能存在路径遍历或未校验的文件路径使用',
     suggestion: '对路径进行规范化、白名单校验，并避免直接拼接用户输入',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.js', '.ts', '.java', '.php', '.py']
   },
   {
     id: 'SEC006',
@@ -54,7 +59,8 @@ export default [
     risk: 'high',
     message: '发现禁用SSL证书校验的HTTP请求',
     suggestion: '启用证书校验或使用可信证书，避免中间人攻击',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.py']
   },
   {
     id: 'SEC007',
@@ -63,7 +69,8 @@ export default [
     risk: 'high',
     message: '检测到MD5/SHA1等弱加密算法的使用',
     suggestion: '使用更安全的算法，如SHA-256/512、Argon2、bcrypt、scrypt',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.js', '.ts', '.java']
   },
   {
     id: 'SEC008',
@@ -72,7 +79,8 @@ export default [
     risk: 'high',
     message: '检测到硬编码的密钥或访问令牌',
     suggestion: '将敏感信息存放在安全的密钥管理或环境变量中',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.js', '.ts', '.java', '.cs', '.php', '.py', '.rb', '.go']
   },
   {
     id: 'SEC009',
@@ -81,7 +89,8 @@ export default [
     risk: 'critical',
     message: '检测到潜在的不安全反序列化操作',
     suggestion: '使用安全的反序列化方式，例如 yaml.safe_load，避免反序列化不可信数据',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.py', '.java', '.php']
   },
   {
     id: 'SEC010',
@@ -90,7 +99,8 @@ export default [
     risk: 'high',
     message: '检测到可能由用户输入构成的URL请求，存在SSRF风险',
     suggestion: '对外部URL进行白名单限制并校验，禁止访问内部地址',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.js', '.ts', '.py']
   },
   {
     id: 'SEC011',
@@ -99,7 +109,8 @@ export default [
     risk: 'high',
     message: '检测到可能的NoSQL注入（动态拼接查询条件）',
     suggestion: '使用参数化查询或安全的查询构建器，避免直接拼接',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.js', '.ts', '.py', '.rb', '.php']
   },
   {
     id: 'SEC012',
@@ -108,7 +119,8 @@ export default [
     risk: 'high',
     message: '检测到基于用户输入的重定向，可能导致开放重定向',
     suggestion: '对目标URL进行白名单校验或固定化处理',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.js', '.ts', '.java']
   },
   {
     id: 'SEC013',
@@ -117,7 +129,8 @@ export default [
     risk: 'critical',
     message: '检测到系统命令执行调用，若包含用户输入可能导致命令注入',
     suggestion: '避免直接调用系统命令，改用安全库或严格白名单参数',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.py']
   },
   {
     id: 'SEC014',
@@ -126,7 +139,8 @@ export default [
     risk: 'medium',
     message: '检测到在安全相关场景中使用非加密安全的随机数生成方法',
     suggestion: '使用加密安全的随机数生成器，如 crypto.randomBytes、secrets.SystemRandom',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.js', '.ts', '.py', '.java']
   },
   {
     id: 'SEC015',
@@ -135,7 +149,8 @@ export default [
     risk: 'high',
     message: '检测到可能导致代码注入的动态执行',
     suggestion: '避免使用eval/Function，改用安全的解析与映射逻辑',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.js', '.ts']
   },
   {
     id: 'SEC016',
@@ -144,7 +159,8 @@ export default [
     risk: 'high',
     message: '检测到对对象原型的直接赋值，可能导致原型污染',
     suggestion: '避免从不可信数据合并到对象原型，使用安全的合并策略',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.js', '.ts']
   },
   {
     id: 'SEC017',
@@ -153,7 +169,8 @@ export default [
     risk: 'critical',
     message: '检测到通过字符串拼接构造SQL语句的执行',
     suggestion: '使用PreparedStatement与占位符进行参数化查询',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.java']
   },
   {
     id: 'SEC018',
@@ -162,7 +179,8 @@ export default [
     risk: 'high',
     message: '检测到直接注入HTML内容，可能导致XSS',
     suggestion: '使用text()或可信模板引擎进行转义输出',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.js']
   },
   {
     id: 'SEC019',
@@ -171,7 +189,8 @@ export default [
     risk: 'high',
     message: '检测到设置过大的文件权限，存在安全风险',
     suggestion: '使用最小权限原则，避免设置777等过宽权限',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.php']
   },
   {
     id: 'SEC020',
@@ -180,7 +199,8 @@ export default [
     risk: 'critical',
     message: '检测到系统命令执行调用，若包含用户输入可能导致命令注入',
     suggestion: '避免直接调用系统命令，改用安全库或严格白名单参数',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.php', '.cs']
   },
   {
     id: 'SEC021',
@@ -189,7 +209,8 @@ export default [
     risk: 'high',
     message: '检测到禁用TLS证书校验的配置',
     suggestion: '启用证书校验并使用可信CA，避免中间人攻击',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.js', '.ts']
   },
   {
     id: 'SEC022',
@@ -198,7 +219,8 @@ export default [
     risk: 'medium',
     message: '检测到CORS允许任意来源，可能导致跨域数据泄露',
     suggestion: '仅对可信来源开放，或使用令牌校验与细粒度策略',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.js', '.ts']
   },
   {
     id: 'SEC023',
@@ -207,7 +229,8 @@ export default [
     risk: 'high',
     message: '检测到基于字符串拼接的LDAP查询过滤器',
     suggestion: '使用安全的过滤器构造与参数绑定，避免直接拼接',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.java', '.py']
   },
   {
     id: 'SEC024',
@@ -216,7 +239,8 @@ export default [
     risk: 'high',
     message: '检测到可能的XML解析，未禁用外部实体可能导致XXE',
     suggestion: '禁用外部实体解析，或使用安全解析库（如defusedxml）',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.py', '.java', '.php']
   },
   {
     id: 'SEC025',
@@ -225,7 +249,8 @@ export default [
     risk: 'high',
     message: '检测到跳过主机名校验的HTTPS验证',
     suggestion: '实现严格的主机名校验逻辑，避免任意通过',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.java']
   },
   {
     id: 'SEC026',
@@ -234,7 +259,8 @@ export default [
     risk: 'critical',
     message: '检测到全局禁用证书错误的环境变量设置',
     suggestion: '移除该设置并使用合法证书，或在测试环境隔离',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.js', '.ts']
   },
   {
     id: 'SEC027',
@@ -243,7 +269,8 @@ export default [
     risk: 'high',
     message: '检测到在连接字符串中硬编码了账号密码',
     suggestion: '使用环境变量或安全凭据存储，避免明文出现在代码中',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.js', '.ts', '.java', '.cs', '.php', '.py', '.rb', '.go']
   },
   {
     id: 'SEC028',
@@ -252,7 +279,8 @@ export default [
     risk: 'medium',
     message: '检测到将敏感信息输出到日志',
     suggestion: '对敏感字段进行脱敏或完全避免记录',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.js', '.ts', '.py', '.java', '.php', '.rb']
   },
   {
     id: 'SEC029',
@@ -261,7 +289,8 @@ export default [
     risk: 'high',
     message: '检测到可能的批量赋值风险，未进行字段白名单校验',
     suggestion: '启用强参数/属性白名单，仅允许安全字段写入',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.rb', '.php']
   },
   {
     id: 'SEC030',
@@ -270,7 +299,8 @@ export default [
     risk: 'high',
     message: '检测到在Go中禁用了TLS证书校验',
     suggestion: '启用证书校验并使用可信CA，避免中间人攻击',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.go']
   },
   {
     id: 'SEC031',
@@ -279,7 +309,8 @@ export default [
     risk: 'high',
     message: '检测到覆盖全局证书校验回调，可能接受任意证书',
     suggestion: '移除该回调并使用正确的证书验证机制',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.cs']
   },
   {
     id: 'SEC032',
@@ -288,7 +319,8 @@ export default [
     risk: 'critical',
     message: '检测到EF Core使用FromSqlRaw并进行字符串拼接',
     suggestion: '使用FromSqlInterpolated或参数化查询，避免注入风险',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.cs']
   },
   {
     id: 'SEC033',
@@ -297,7 +329,8 @@ export default [
     risk: 'high',
     message: '检测到Go中执行系统命令，若包含用户输入可能导致命令注入',
     suggestion: '避免使用shell -c与拼接命令，采用白名单参数与直接可执行路径',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.go']
   },
   {
     id: 'SEC034',
@@ -306,6 +339,7 @@ export default [
     risk: 'medium',
     message: '检测到使用math/rand生成随机数，非加密安全',
     suggestion: '使用crypto/rand或安全随机数库生成敏感令牌与密钥',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.go']
   }
 ];

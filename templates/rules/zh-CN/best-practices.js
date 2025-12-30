@@ -7,7 +7,8 @@ export default [
     risk: 'low',
     message: '发现调试代码，建议在提交前移除',
     suggestion: '使用日志系统替代console.log',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.js', '.ts', '.py', '.php', '.rb']
   },
   {
     id: 'BP002',
@@ -16,7 +17,8 @@ export default [
     risk: 'low',
     message: '检测到魔法数字，建议使用常量定义',
     suggestion: '将数字定义为有意义的常量',
-    flags: 'g'
+    flags: 'g',
+    extensions: ['.js', '.ts', '.java', '.cs', '.php', '.py', '.rb', '.go']
   },
   {
     id: 'BP003',
@@ -25,7 +27,8 @@ export default [
     risk: 'medium',
     message: '检测到空的catch块，可能隐藏错误并导致不可预期行为',
     suggestion: '记录日志或采取补救措施，避免吞掉异常',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.js', '.ts', '.java', '.cs', '.php']
   },
   {
     id: 'BP004',
@@ -34,7 +37,8 @@ export default [
     risk: 'medium',
     message: '检测到@ts-ignore，可能掩盖类型错误',
     suggestion: '修复类型问题或使用更精确的类型定义',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.ts']
   },
   {
     id: 'BP005',
@@ -43,7 +47,8 @@ export default [
     risk: 'medium',
     message: '检测到any类型，可能削弱类型系统保护',
     suggestion: '使用具体类型或泛型替代any，提高类型安全',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.ts']
   },
   {
     id: 'BP006',
@@ -52,7 +57,8 @@ export default [
     risk: 'medium',
     message: '检测到禁用ESLint，可能隐藏代码质量问题',
     suggestion: '只在必要范围局部禁用，并给出明确原因',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.js', '.ts']
   },
   {
     id: 'BP007',
@@ -61,7 +67,8 @@ export default [
     risk: 'medium',
     message: '检测到调试断点，可能影响线上行为',
     suggestion: '在提交前移除debugger并使用日志或断言',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.js', '.ts']
   },
   {
     id: 'BP008',
@@ -70,7 +77,8 @@ export default [
     risk: 'medium',
     message: '捕获过于宽泛的异常类型且未进行适当处理',
     suggestion: '捕获具体的异常类型，并确保进行适当的日志记录或重新抛出',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.js', '.ts', '.java', '.cs', '.php']
   },
   {
     id: 'BP009',
@@ -79,7 +87,8 @@ export default [
     risk: 'medium',
     message: '检测到直接打印堆栈跟踪，可能导致信息丢失与不可控输出',
     suggestion: '使用结构化日志记录错误，并附带上下文信息',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.java']
   },
   {
     id: 'BP010',
@@ -88,7 +97,8 @@ export default [
     risk: 'high',
     message: '检测到System.exit，可能导致服务非预期中断',
     suggestion: '使用受控的停止流程（优雅关闭）、信号处理与资源回收',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.java']
   },
   {
     id: 'BP011',
@@ -97,7 +107,8 @@ export default [
     risk: 'medium',
     message: '检测到使用root作为数据库用户，存在安全与审计风险',
     suggestion: '使用最小权限的应用专用账户，分离权限与职责',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.js', '.ts', '.java', '.cs', '.php', '.py', '.rb', '.go']
   },
   {
     id: 'BP012',
@@ -106,6 +117,7 @@ export default [
     risk: 'high',
     message: '检测到全局禁用CSRF保护，可能导致跨站请求伪造风险',
     suggestion: '在必要的API上采用令牌/同源策略，避免全局关闭',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.java']
   }
 ];

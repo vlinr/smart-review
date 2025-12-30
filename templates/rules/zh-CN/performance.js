@@ -7,7 +7,8 @@ export default [
     risk: 'medium',
     message: '在循环内执行数据库查询，可能导致N+1查询问题',
     suggestion: '使用批量查询或预加载数据',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.js', '.ts', '.java', '.py', '.php', '.rb', '.cs', '.go']
   },
   {
     id: 'PERF002',
@@ -17,6 +18,7 @@ export default [
     message: '发现定时器使用，若未清理可能导致内存泄漏或残留任务',
     suggestion: '确保在适当生命周期调用 clearInterval/clearTimeout 进行清理',
     flags: 'gi',
+    extensions: ['.js', '.ts'],
     // 为了覆盖内置 PERF002，外部规则增加清理检测，若文件中存在任一清理则跳过此规则
     requiresAbsent: ['clearInterval\\s*\\(', 'clearTimeout\\s*\\(']
   },
@@ -27,7 +29,8 @@ export default [
     risk: 'high',
     message: '检测到同步文件IO，可能阻塞事件循环并影响吞吐',
     suggestion: '优先使用异步IO或队列化处理，避免阻塞主线程',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.js', '.ts']
   },
   {
     id: 'PERF004',
@@ -36,7 +39,8 @@ export default [
     risk: 'high',
     message: '检测到循环内执行网络请求，可能导致级联延迟与拥塞',
     suggestion: '合并请求、并发控制或批量处理，减少往返次数',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.js', '.ts', '.py']
   },
   {
     id: 'PERF005',
@@ -45,7 +49,8 @@ export default [
     risk: 'medium',
     message: '循环内频繁序列化可能导致CPU开销过大',
     suggestion: '将序列化移到循环外或进行缓存/批量处理',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.js', '.ts']
   },
   {
     id: 'PERF006',
@@ -54,7 +59,8 @@ export default [
     risk: 'medium',
     message: '循环内重复编译正则会增加不必要的开销',
     suggestion: '将正则常量化或预编译，避免在循环中创建',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.js', '.ts']
   },
   {
     id: 'PERF007',
@@ -63,7 +69,8 @@ export default [
     risk: 'high',
     message: '检测到可能的忙等待循环，可能导致CPU飙升与资源浪费',
     suggestion: '使用事件驱动或阻塞等待机制，避免空循环',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.js', '.ts', '.java', '.cs', '.php', '.rb']
   },
   {
     id: 'PERF008',
@@ -72,7 +79,8 @@ export default [
     risk: 'high',
     message: '循环内读取布局信息会触发频繁回流/重绘',
     suggestion: '合并DOM读写、使用批处理、减少同步布局查询',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.js', '.ts']
   },
   {
     id: 'PERF009',
@@ -81,7 +89,8 @@ export default [
     risk: 'medium',
     message: '检测到阻塞等待调用，可能降低服务吞吐和响应',
     suggestion: '改用异步等待或限流/队列机制，避免阻塞主线程',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.java', '.py']
   },
   {
     id: 'PERF010',
@@ -90,7 +99,8 @@ export default [
     risk: 'high',
     message: '检测到无界线程池，可能导致线程爆炸与资源枯竭',
     suggestion: '使用有界线程池并设置合理最大值与队列长度',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.java']
   },
   {
     id: 'PERF011',
@@ -99,7 +109,8 @@ export default [
     risk: 'medium',
     message: '循环内频繁字符串拼接会造成较大CPU与内存开销',
     suggestion: '使用StringBuilder/列表收集再join，或其他批量化策略',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.js', '.ts', '.java', '.cs', '.py', '.rb']
   },
   {
     id: 'PERF012',
@@ -108,7 +119,8 @@ export default [
     risk: 'high',
     message: '循环内反复创建数据库连接会导致严重性能问题',
     suggestion: '使用连接池与复用策略，在循环外预先获取连接',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.js', '.ts', '.java', '.cs', '.php']
   },
   {
     id: 'PERF013',
@@ -118,6 +130,7 @@ export default [
     message: '网络请求未设置超时会造成资源悬挂与吞吐下降',
     suggestion: '设置合理的timeout参数，并对重试与熔断进行控制',
     flags: 'gi',
+    extensions: ['.py'],
     requiresAbsent: ['timeout\\s*=']
   }
 ];

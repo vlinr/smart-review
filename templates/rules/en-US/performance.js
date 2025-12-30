@@ -7,7 +7,8 @@ export default [
     risk: 'medium',
     message: 'Executing DB queries in loops may cause N+1 problems',
     suggestion: 'Use batch queries or preload data',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.js', '.ts', '.java', '.py', '.php', '.rb', '.cs', '.go']
   },
   {
     id: 'PERF002',
@@ -17,6 +18,7 @@ export default [
     message: 'Timers without cleanup may cause leaks or lingering tasks',
     suggestion: 'Call clearInterval/clearTimeout at the proper lifecycle point',
     flags: 'gi',
+    extensions: ['.js', '.ts'],
     // To override built-in PERF002, external rule adds cleanup detection; skip if any cleanup exists in file
     requiresAbsent: ['clearInterval\\s*\\(', 'clearTimeout\\s*\\(']
   },
@@ -27,7 +29,8 @@ export default [
     risk: 'high',
     message: 'Sync file I/O may block the event loop and hurt throughput',
     suggestion: 'Prefer async I/O or queued processing; avoid blocking the main thread',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.js', '.ts']
   },
   {
     id: 'PERF004',
@@ -36,7 +39,8 @@ export default [
     risk: 'high',
     message: 'Requests inside loops can cause cascading latency and congestion',
     suggestion: 'Merge requests, control concurrency, or batch to reduce round-trips',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.js', '.ts', '.py']
   },
   {
     id: 'PERF005',
@@ -45,7 +49,8 @@ export default [
     risk: 'medium',
     message: 'Frequent serialization in loops causes excessive CPU overhead',
     suggestion: 'Move serialization out of the loop or cache/batch it',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.js', '.ts']
   },
   {
     id: 'PERF006',
@@ -54,7 +59,8 @@ export default [
     risk: 'medium',
     message: 'Repeated regex compilation adds unnecessary overhead',
     suggestion: 'Precompile or constantize regexes; avoid creating them in loops',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.js', '.ts']
   },
   {
     id: 'PERF007',
@@ -63,7 +69,8 @@ export default [
     risk: 'high',
     message: 'Possible busy-wait detected; can spike CPU and waste resources',
     suggestion: 'Use event-driven or blocking waits; avoid empty loops',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.js', '.ts', '.java', '.cs', '.php', '.rb']
   },
   {
     id: 'PERF008',
@@ -72,7 +79,8 @@ export default [
     risk: 'high',
     message: 'Reading layout in loops triggers frequent reflow/repaint',
     suggestion: 'Batch DOM reads/writes; reduce synchronous layout queries',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.js', '.ts']
   },
   {
     id: 'PERF009',
@@ -81,7 +89,8 @@ export default [
     risk: 'medium',
     message: 'Blocking waits reduce throughput and responsiveness',
     suggestion: 'Use async waits or rate-limiting/queues; avoid blocking',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.java', '.py']
   },
   {
     id: 'PERF010',
@@ -90,7 +99,8 @@ export default [
     risk: 'high',
     message: 'Unbounded pools can explode thread count and exhaust resources',
     suggestion: 'Use bounded pools with sane maximums and queue lengths',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.java']
   },
   {
     id: 'PERF011',
@@ -99,7 +109,8 @@ export default [
     risk: 'medium',
     message: 'Frequent concatenation in loops consumes CPU and memory',
     suggestion: 'Use StringBuilder/collect in lists then join, or batch strategies',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.js', '.ts', '.java', '.cs', '.py', '.rb']
   },
   {
     id: 'PERF012',
@@ -108,7 +119,8 @@ export default [
     risk: 'high',
     message: 'Repeatedly creating DB connections causes severe performance issues',
     suggestion: 'Use connection pools and reuse; acquire connections outside loops',
-    flags: 'gi'
+    flags: 'gi',
+    extensions: ['.js', '.ts', '.java', '.cs', '.php']
   },
   {
     id: 'PERF013',
@@ -118,6 +130,7 @@ export default [
     message: 'Requests without timeout can hang resources and reduce throughput',
     suggestion: 'Set reasonable timeout; control retries and circuit breaking',
     flags: 'gi',
+    extensions: ['.py'],
     requiresAbsent: ['timeout\\s*=']
   }
 ];

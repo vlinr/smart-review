@@ -75,7 +75,9 @@
     "**/Pipfile.lock",
     "**/.env",
     "**/.env.*",
-    "**/config/secrets.*"
+    "**/config/secrets.*",
+    "**/build/**",
+    "**/dist/**"
   ],
   "locale": "zh-CN"
 }
