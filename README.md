@@ -7,7 +7,8 @@
 ## ✨ 特性
 
 - 🔍 **静态规则检测** - 内置安全、性能、最佳实践规则
-- 🧠 **AI智能分析** - 基于 OpenAI GPT 的深度代码分析
+- 🧠 **AI智能分析** - 支持 OpenAI / Anthropic / Gemini 的统一对接
+- 🧩 **审查技能编排** - 支持 Skills 约束输出，强制细化风险分析与修复建议
 - ⚡ **Git Diff增量审查** - 智能识别变更内容，只审查修改的代码行，大幅提升审查效率
 - 🚀 **智能分批处理** - 自动优化大文件处理，支持分段分析
 - 📊 **大文件支持** - 智能分段处理超大文件，突破token限制
@@ -131,6 +132,11 @@ node bin/review.js --files test/src/large-test-file.js
 }
 ```
 
+#### 中断与终端兼容
+- 支持在 Git Bash、CMD、PowerShell 中进行交互中断
+- 审查过程中输入 `q` 或按 `Esc` 可中断审查并输出已完成结果
+- 中断不会被视为审查失败，只有存在阻断风险才会阻止提交
+
 ## ⚙️ 配置文件
 
 ### 主配置文件 `.smart-review/smart-review.json`
@@ -139,6 +145,7 @@ node bin/review.js --files test/src/large-test-file.js
 {
   "ai": {
     "enabled": true,
+    "provider": "openai",
     "model": "deepseek-chat",
     "apiKey": "your-api-key",
     "baseURL": "https://api.deepseek.com/v1",
@@ -153,6 +160,13 @@ node bin/review.js --files test/src/large-test-file.js
     "tokenRatio": 4,
     "chunkOverlapLines": 5,
     "includeStaticHints": true,
+    "skills": {
+      "enabled": true,
+      "strict": false,
+      "maxSkillsPerRequest": 4,
+      "required": ["DIFF_RISK_GUARD", "EVIDENCE_ENFORCER"],
+      "optional": ["SECURITY_DEEP", "LOGIC_CORRECTNESS", "API_CONTRACT"]
+    },
     "temperature": 0,
     "concurrency": 3
   },
@@ -183,8 +197,9 @@ node bin/review.js --files test/src/large-test-file.js
 
 #### AI 配置 (`ai`)
 - `enabled`: 是否启用AI分析
-- `model`: OpenAI模型名称
-- `apiKey`: OpenAI API密钥
+- `provider`: 模型提供方，支持 `openai`、`anthropic`、`gemini`
+- `model`: 对应提供方的模型名称
+- `apiKey`: 统一 API 密钥字段（也可通过环境变量注入）
 - `baseURL`: API基础URL
 - `reviewOnlyChanges`: 是否启用Git Diff增量审查模式。`true`时只审查变更的代码行，`false`时审查整个文件内容。默认为`true`，大幅提升审查效率
 - `maxResponseTokens`: AI响应最大token数
@@ -199,6 +214,11 @@ node bin/review.js --files test/src/large-test-file.js
 - `includeStaticHints`: 是否在AI分析中包含静态规则提示
 - `temperature`: AI模型的创造性参数，0表示最确定性的输出
 - `concurrency`: 并发AI请求数量，默认3个。设置为1或更小时使用串行处理，大于1时启用并发处理以提升性能
+- `skills.enabled`: 是否启用审查技能编排
+- `skills.strict`: 是否强制检查输出是否满足“路径/片段/原因/建议”约束
+- `skills.maxSkillsPerRequest`: 单次请求最多启用的技能数量
+- `skills.required`: 必选技能列表
+- `skills.optional`: 可选技能列表（按模式补充）
 
 #### 风险等级配置 (`riskLevels`)
 - `critical`: 致命风险
@@ -560,8 +580,15 @@ const reviewer = new CodeReviewer(customConfig, defaultRules);
 可通过环境变量配置：
 
 ```bash
-# OpenAI API配置
+# 统一 API 配置（最高优先级）
+export AI_API_KEY="your-api-key"
+
+# 按 Provider 配置
 export OPENAI_API_KEY="your-api-key"
+export ANTHROPIC_API_KEY="your-api-key"
+export GEMINI_API_KEY="your-api-key"
+# 或 Google 生态变量
+export GOOGLE_API_KEY="your-api-key"
 
 # 调试模式
 export DEBUG_SMART_REVIEW=true
@@ -578,7 +605,7 @@ export SMART_REVIEW_LOCALE=zh-CN  # 或 en-US
 
 ```json
 {
-  "ai": { "baseURL": "https://api.openai.com/v1" }
+  "ai": { "provider": "openai", "baseURL": "https://api.openai.com/v1" }
 }
 ```
 
@@ -740,13 +767,4 @@ smart-review --staged --debug
 4. 推送到分支 (`git push origin feature/amazing-feature`)
 5. 开启 Pull Request
 
-## 📞 支持
-
-- 📧 邮箱: zlife@vip.qq.com
-- 🐛 问题反馈: [GitHub Issues](https://github.com/vlinr/smart-review/issues)
-
----
-
 ⭐ 如果这个项目对你有帮助，请给个 Star！
-
-

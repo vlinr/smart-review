@@ -1,8 +1,9 @@
 {
   "ai": {
     "enabled": false,
+    "provider": "openai",
     "model": "gpt-4o-mini",
-    "apiKey": "your-openai-api-key",
+    "apiKey": "your-api-key",
     "baseURL": "",
     "temperature": 0.1,
     "maxResponseTokens": 4096,
@@ -15,6 +16,13 @@
     "tokenRatio": 4,
     "chunkOverlapLines": 5,
     "includeStaticHints": true,
+    "skills": {
+      "enabled": true,
+      "strict": false,
+      "maxSkillsPerRequest": 4,
+      "required": ["DIFF_RISK_GUARD", "EVIDENCE_ENFORCER"],
+      "optional": ["SECURITY_DEEP", "LOGIC_CORRECTNESS", "API_CONTRACT"]
+    },
     "concurrency": 3,
     "reviewOnlyChanges": true,
     "contextMergeLines": 10

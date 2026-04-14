@@ -2,6 +2,8 @@
 
 import path from 'path';
 import fs from 'fs';
+import readline from 'readline';
+import tty from 'tty';
 import { CodeReviewer } from '../lib/reviewer.js';
 import { ConfigLoader } from '../lib/config-loader.js';
 import { logger } from '../lib/utils/logger.js';
@@ -11,6 +13,9 @@ import { t, displayRisk } from '../lib/utils/i18n.js';
 class ReviewCLI {
   constructor() {
     this.projectRoot = this.findProjectRoot();
+    this.stopKeyListener = null;
+    this.stopSignalListener = null;
+    this.promptInterface = null;
   }
 
   findProjectRoot() {
@@ -32,13 +37,16 @@ class ReviewCLI {
 
   async run() {
     const args = process.argv.slice(2);
-    
+    let result;
+    let exitCode = 0;
     try {
       // 加载配置
       const configLoader = new ConfigLoader(this.projectRoot);
       const config = await configLoader.loadConfig();
       this.config = config;
       logger.progress(t(config, 'cli_start'));
+      const cancelToken = this.setupInterruptListener(config);
+      this.cancelToken = cancelToken;
       
       // 调试日志开关（命令行）
       if (args.includes('--debug')) {
@@ -63,9 +71,8 @@ class ReviewCLI {
       
       const rules = await configLoader.loadRules(config);
       // 创建审查器
-      const reviewer = new CodeReviewer(config, rules);
+      const reviewer = new CodeReviewer(config, rules, cancelToken);
       
-      let result;
       if (args.includes('--staged')) {
         result = await reviewer.reviewStagedFiles();
       } else if (args.includes('--files')) {
@@ -77,15 +84,38 @@ class ReviewCLI {
         logger.info(t(config, 'usage_staged'));
         logger.info(t(config, 'usage_diffonly'));
         logger.info(t(config, 'usage_files'));
-        process.exit(1);
+        exitCode = 1;
+        return;
       }
       
       this.printResults(result, config);
-      process.exit(result.blockSubmission ? 1 : 0);
-      
+      const hasBlocking = !!result?.blockSubmission;
+      const wasCancelled = this.cancelToken && this.cancelToken.isCancelled && this.cancelToken.isCancelled();
+      const reason = this.cancelToken?.reason || '';
+      if (wasCancelled) {
+        if (hasBlocking) {
+          exitCode = 1;
+        } else {
+          exitCode = reason === 'sigterm' ? 143 : 130;
+        }
+      } else {
+        exitCode = hasBlocking ? 1 : 0;
+      }
     } catch (error) {
       logger.error(t(this.config || process.env.SMART_REVIEW_LOCALE || 'zh-CN', 'review_error', { error: error.message }));
-      process.exit(1);
+      exitCode = 1;
+    } finally {
+      if (this.stopKeyListener) this.stopKeyListener();
+      if (this.stopSignalListener) this.stopSignalListener();
+      if (this.promptInterface) {
+        try { this.promptInterface.close(); } catch (e) {}
+      }
+      if (this.cancelToken && this.cancelToken.isCancelled && this.cancelToken.isCancelled()) {
+        const hasBlocking = !!result?.blockSubmission;
+        const reason = this.cancelToken?.reason || '';
+        exitCode = hasBlocking ? 1 : (reason === 'sigterm' ? 143 : 130);
+      }
+      process.exit(exitCode);
     }
   }
 
@@ -243,6 +273,150 @@ class ReviewCLI {
     });
     // 统一两空格缩进
     return normalized.map(l => `  ${l}`).join('\n');
+  }
+
+  createCancelToken() {
+    const token = { cancelled: false, reason: '', listeners: new Set() };
+    token.isCancelled = () => token.cancelled;
+    token.onCancel = (fn) => {
+      token.listeners.add(fn);
+      return () => token.listeners.delete(fn);
+    };
+    token.cancel = (reason) => {
+      if (token.cancelled) return;
+      token.cancelled = true;
+      token.reason = reason || 'user';
+      for (const fn of Array.from(token.listeners)) {
+        try { fn(token.reason); } catch (e) {}
+      }
+    };
+    return token;
+  }
+
+  setupInterruptListener(config) {
+    const token = this.createCancelToken();
+    token.onCancel(() => logger.info(t(config, 'interrupt_triggered')));
+    const bindSignalListener = () => {
+      const onSigInt = () => token.cancel('sigint');
+      const onSigTerm = () => token.cancel('sigterm');
+      const onSigBreak = () => token.cancel('sigbreak');
+      try { process.on('SIGINT', onSigInt); } catch (_) {}
+      try { process.on('SIGTERM', onSigTerm); } catch (_) {}
+      try { process.on('SIGBREAK', onSigBreak); } catch (_) {}
+      this.stopSignalListener = () => {
+        try { process.off('SIGINT', onSigInt); } catch (_) {}
+        try { process.off('SIGTERM', onSigTerm); } catch (_) {}
+        try { process.off('SIGBREAK', onSigBreak); } catch (_) {}
+      };
+    };
+    const bindKeyListener = (inputStream) => {
+      readline.emitKeypressEvents(inputStream);
+      const handleKey = (_, key) => {
+        if (!key) return;
+        if (key.name === 'q' || key.name === 'escape') {
+          token.cancel('user');
+        }
+      };
+      const handleData = (chunk) => {
+        if (!chunk) return;
+        const data = Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk));
+        for (const byte of data) {
+          if (byte === 0x1b) {
+            token.cancel('user');
+            return;
+          }
+          if (byte === 0x71 || byte === 0x51) {
+            token.cancel('user');
+            return;
+          }
+        }
+      };
+      inputStream.on('keypress', handleKey);
+      inputStream.on('data', handleData);
+      try { inputStream.setRawMode && inputStream.setRawMode(true); } catch (e) {}
+      try { inputStream.setEncoding && inputStream.setEncoding('utf8'); } catch (e) {}
+      inputStream.resume();
+      this.stopKeyListener = () => {
+        inputStream.off('keypress', handleKey);
+        inputStream.off('data', handleData);
+        try { inputStream.setRawMode && inputStream.setRawMode(false); } catch (e) {}
+        inputStream.pause();
+        try { inputStream.destroy && inputStream.destroy(); } catch (e) {}
+      };
+      if (process.stdout && process.stdout.isTTY && !this.promptInterface) {
+        const rl = readline.createInterface({
+          input: inputStream,
+          output: process.stdout,
+          terminal: true
+        });
+        this.promptInterface = rl;
+        const promptText = t(config, 'interrupt_prompt');
+        const showPrompt = () => {
+          try {
+            rl.setPrompt(promptText);
+            rl.prompt(true);
+          } catch (e) {}
+        };
+        rl.on('line', (line) => {
+          const value = String(line || '').trim().toLowerCase();
+          if (value === 'q' || value === 'quit' || value === 'exit') {
+            token.cancel('user');
+            return;
+          }
+          showPrompt();
+        });
+        rl.on('SIGINT', () => token.cancel('sigint'));
+        token.onCancel(() => {
+          try { rl.close(); } catch (e) {}
+        });
+        showPrompt();
+      }
+    };
+    const bindFromPath = (devicePath) => {
+      try {
+        const fd = fs.openSync(devicePath, 'r');
+        const isWinConsole = process.platform === 'win32' && /CONIN\$/i.test(devicePath);
+        const forceTty = process.env.SMART_REVIEW_FORCE_TTY === '1';
+        const useTty = tty.isatty(fd) || isWinConsole || forceTty;
+        const input = useTty ? new tty.ReadStream(fd) : fs.createReadStream(null, { fd, autoClose: true });
+        bindKeyListener(input);
+        return true;
+      } catch (e) {
+        return false;
+      }
+    };
+    let bound = false;
+    if (process.env.SMART_REVIEW_TTY) {
+      bound = bindFromPath(process.env.SMART_REVIEW_TTY);
+    }
+    if (!bound && process.stdin && process.stdin.isTTY) {
+      bindKeyListener(process.stdin);
+      bound = true;
+    }
+    if (!bound) {
+      const candidates = process.platform === 'win32'
+        ? ['\\\\.\\CONIN$', 'CONIN$', '/dev/tty']
+        : ['/dev/tty'];
+      for (const dev of candidates) {
+        if (bindFromPath(dev)) {
+          bound = true;
+          break;
+        }
+      }
+      if (!bound && process.stdin) {
+        try {
+          bindKeyListener(process.stdin);
+          bound = true;
+        } catch (e) {
+          bound = false;
+        }
+      }
+    }
+    if (!bound) {
+      this.stopKeyListener = () => {};
+    }
+    bindSignalListener();
+    return token;
   }
 }
 

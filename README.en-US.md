@@ -7,7 +7,8 @@
 ## ✨ Features
 
 - Static rule checks for Security, Performance, Best Practices
-- AI analysis (OpenAI-compatible) with incremental Git Diff review
+- AI analysis with unified OpenAI / Anthropic / Gemini integration
+- Skill-driven review orchestration to enforce detailed risk and fix outputs
 - Smart batching and chunked processing for large files
 - Git Hook integration (pre-commit)
 - Highly configurable and multilingual output
@@ -124,6 +125,11 @@ Add to `package.json` if you use Husky:
 }
 ```
 
+#### Interrupt & Terminal Compatibility
+- Works in Git Bash, CMD, and PowerShell
+- Press `q` or `Esc` during review to interrupt and print completed results
+- Interruptions do not fail the review; only blocking risks stop the commit
+
 ## ⚙️ Config
 
 Main config `.smart-review/smart-review.json` example:
@@ -132,6 +138,7 @@ Main config `.smart-review/smart-review.json` example:
 {
   "ai": {
     "enabled": true,
+    "provider": "openai",
     "model": "deepseek-chat",
     "baseURL": "https://api.deepseek.com/v1",
     "reviewOnlyChanges": true,
@@ -141,6 +148,13 @@ Main config `.smart-review/smart-review.json` example:
     "useStaticHints": true,
     "maxRequestTokens": 8000,
     "temperature": 0,
+    "skills": {
+      "enabled": true,
+      "strict": false,
+      "maxSkillsPerRequest": 4,
+      "required": ["DIFF_RISK_GUARD", "EVIDENCE_ENFORCER"],
+      "optional": ["SECURITY_DEEP", "LOGIC_CORRECTNESS", "API_CONTRACT"]
+    },
     "concurrency": 3
   },
   "riskLevels": {
@@ -158,8 +172,9 @@ Main config `.smart-review/smart-review.json` example:
 
 #### AI (`ai`)
 - `enabled`: Enable AI analysis
-- `model`: OpenAI model name
-- `apiKey`: OpenAI API key
+- `provider`: Model provider, supports `openai`, `anthropic`, `gemini`
+- `model`: Model name for the selected provider
+- `apiKey`: Unified API key field (or use environment variables)
 - `baseURL`: API base URL
 - `reviewOnlyChanges`: Enable Git Diff incremental review; true analyzes only changed lines
 - `maxResponseTokens`: Max tokens in AI response
@@ -173,6 +188,11 @@ Main config `.smart-review/smart-review.json` example:
 - `includeStaticHints`: Include rule hints in AI analysis
 - `temperature`: Model creativity; 0 favors deterministic outputs
 - `concurrency`: Number of concurrent AI requests
+- `skills.enabled`: Enable review skill orchestration
+- `skills.strict`: Enforce output constraints (path/snippet/reason/suggestion)
+- `skills.maxSkillsPerRequest`: Max skills applied in one request
+- `skills.required`: Required skill list
+- `skills.optional`: Optional skill list (mode-based supplement)
 
 #### Risk Levels (`riskLevels`)
 - `critical` / `high` / `medium` / `low` / `suggestion`
@@ -530,7 +550,11 @@ To add a new language (e.g., `ja-JP`), create `templates/rules/ja-JP/` with the 
 ## 🌍 Environment Variables
 
 ```bash
+export AI_API_KEY="your-api-key"
 export OPENAI_API_KEY="your-api-key"
+export ANTHROPIC_API_KEY="your-api-key"
+export GEMINI_API_KEY="your-api-key"
+export GOOGLE_API_KEY="your-api-key"
 export DEBUG_SMART_REVIEW=true
 export SMART_REVIEW_LOCALE=en-US
 ```
@@ -539,7 +563,7 @@ To use a custom OpenAI-compatible endpoint, set `ai.baseURL` in `.smart-review/s
 
 ```json
 {
-  "ai": { "baseURL": "https://api.openai.com/v1" }
+  "ai": { "provider": "openai", "baseURL": "https://api.openai.com/v1" }
 }
 ```
 
