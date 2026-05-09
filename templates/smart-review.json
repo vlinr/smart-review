@@ -18,10 +18,10 @@
     "includeStaticHints": true,
     "skills": {
       "enabled": true,
-      "strict": false,
-      "maxSkillsPerRequest": 4,
-      "required": ["DIFF_RISK_GUARD", "EVIDENCE_ENFORCER"],
-      "optional": ["SECURITY_DEEP", "LOGIC_CORRECTNESS", "API_CONTRACT"]
+      "strict": false
+    },
+    "tools": {
+      "enabled": false
     },
     "concurrency": 3,
     "reviewOnlyChanges": true,

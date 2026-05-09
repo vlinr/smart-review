@@ -153,7 +153,31 @@ Main config `.smart-review/smart-review.json` example:
       "strict": false,
       "maxSkillsPerRequest": 4,
       "required": ["DIFF_RISK_GUARD", "EVIDENCE_ENFORCER"],
-      "optional": ["SECURITY_DEEP", "LOGIC_CORRECTNESS", "API_CONTRACT"]
+      "optional": ["SECURITY_DEEP", "LOGIC_CORRECTNESS", "API_CONTRACT"],
+      "routes": [
+        {
+          "match": ["**/auth/**", "**/security/**"],
+          "modes": ["diff", "batch", "segment"],
+          "add": ["SECURITY_DEEP", "API_CONTRACT"]
+        }
+      ]
+    },
+    "tools": {
+      "enabled": false,
+      "maxCalls": 2,
+      "maxReadLines": 400,
+      "maxSearchMatches": 50,
+      "maxSearchFiles": 120,
+      "maxListFiles": 200,
+      "allow": [
+        "read_file",
+        "get_staged_diff",
+        "list_files",
+        "search_in_file",
+        "get_file_outline",
+        "search_in_repo",
+        "list_changed_files"
+      ]
     },
     "concurrency": 3
   },
@@ -193,7 +217,23 @@ Main config `.smart-review/smart-review.json` example:
 - `skills.maxSkillsPerRequest`: Max skills applied in one request
 - `skills.required`: Required skill list
 - `skills.optional`: Optional skill list (mode-based supplement)
+- `skills.routes`: Dynamically append skills by file path and mode (`match/modes/add`)
+- `tools.enabled`: Enable local read-only tool calling (see tool list below)
+- `tools.maxCalls`: Max tool-call rounds per request
+- `tools.maxReadLines`: Max lines for single `read_file` call
+- `tools.maxSearchMatches`: Max returned matches for `search_in_file` / `search_in_repo`
+- `tools.maxSearchFiles`: Max scanned files for one `search_in_repo` call
+- `tools.maxListFiles`: Max returned files for one `list_files` call
+- `tools.allow`: Tool allowlist (only listed tools can be called by the model)
 
+#### AI Read-Only Tool List (`ai.tools.allow`)
+- `read_file`: Read specific line ranges from one file
+- `get_staged_diff`: Get staged Git diff (optionally filtered by path)
+- `list_files`: Recursively list repository files (supports subdir and keyword/wildcard filtering)
+- `search_in_file`: Search text or regex in a single file
+- `get_file_outline`: Extract lightweight file outline (class/function/method signatures)
+- `search_in_repo`: Search text or regex across repository files (with scan and result caps)
+- `list_changed_files`: List changed Git files (supports staged/unstaged and status filtering)
 #### Risk Levels (`riskLevels`)
 - `critical` / `high` / `medium` / `low` / `suggestion`
 - Each level supports `block` to decide whether to block commits

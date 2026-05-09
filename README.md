@@ -165,7 +165,31 @@ node bin/review.js --files test/src/large-test-file.js
       "strict": false,
       "maxSkillsPerRequest": 4,
       "required": ["DIFF_RISK_GUARD", "EVIDENCE_ENFORCER"],
-      "optional": ["SECURITY_DEEP", "LOGIC_CORRECTNESS", "API_CONTRACT"]
+      "optional": ["SECURITY_DEEP", "LOGIC_CORRECTNESS", "API_CONTRACT"],
+      "routes": [
+        {
+          "match": ["**/auth/**", "**/security/**"],
+          "modes": ["diff", "batch", "segment"],
+          "add": ["SECURITY_DEEP", "API_CONTRACT"]
+        }
+      ]
+    },
+    "tools": {
+      "enabled": false,
+      "maxCalls": 2,
+      "maxReadLines": 400,
+      "maxSearchMatches": 50,
+      "maxSearchFiles": 120,
+      "maxListFiles": 200,
+      "allow": [
+        "read_file",
+        "get_staged_diff",
+        "list_files",
+        "search_in_file",
+        "get_file_outline",
+        "search_in_repo",
+        "list_changed_files"
+      ]
     },
     "temperature": 0,
     "concurrency": 3
@@ -219,6 +243,23 @@ node bin/review.js --files test/src/large-test-file.js
 - `skills.maxSkillsPerRequest`: 单次请求最多启用的技能数量
 - `skills.required`: 必选技能列表
 - `skills.optional`: 可选技能列表（按模式补充）
+- `skills.routes`: 按文件路径和模式动态追加技能（`match/modes/add`）
+- `tools.enabled`: 启用本地只读工具调用（见下方工具清单）
+- `tools.maxCalls`: 单次请求最多工具调用轮次
+- `tools.maxReadLines`: `read_file` 单次读取最大行数
+- `tools.maxSearchMatches`: `search_in_file` / `search_in_repo` 单次最多返回匹配条数
+- `tools.maxSearchFiles`: `search_in_repo` 单次最多扫描文件数
+- `tools.maxListFiles`: `list_files` 单次最多返回文件数
+- `tools.allow`: 工具白名单（仅允许模型调用白名单中的工具）
+
+#### AI 只读工具清单 (`ai.tools.allow`)
+- `read_file`: 读取指定文件的行区间
+- `get_staged_diff`: 获取暂存区 diff（可按文件路径过滤）
+- `list_files`: 递归列出仓库内文件（支持子目录和关键字/通配符过滤）
+- `search_in_file`: 在单个文件内按文本或正则搜索
+- `get_file_outline`: 提取文件结构轮廓（类/函数/方法等）
+- `search_in_repo`: 在仓库范围内按文本或正则搜索（支持扫描文件数和结果数上限）
+- `list_changed_files`: 获取 Git 变更文件列表（支持 staged/unstaged 和状态过滤）
 
 #### 风险等级配置 (`riskLevels`)
 - `critical`: 致命风险

@@ -1,7 +1,7 @@
 {
   "name": "smart-review",
-  "version": "1.1.0-beta.36",
-  "description": "AI智能代码审查工具，支持静态规则和AI分析",
+  "version": "1.2.0",
+  "description": "AI智能代码审查工具 - 结合静态规则检测和AI智能分析，为你的代码提供全方位的安全和质量审查",
   "type": "module",
   "main": "index.js",
   "bin": {
@@ -15,9 +15,34 @@
     "test:ai": "node ./bin/review.js --files test/src/index.tsx --ai",
     "debug": "node --inspect ./bin/review.js --files test/src/test-file.js"
   },
-  "keywords": ["code-review", "ai", "git-hook", "security"],
-  "author": "",
+  "keywords": [
+    "code-review",
+    "ai",
+    "git-hook",
+    "security",
+    "static-analysis",
+    "code-quality",
+    "lint",
+    "pre-commit",
+    "openai",
+    "anthropic",
+    "gemini",
+    "javascript",
+    "typescript",
+    "python",
+    "java",
+    "go"
+  ],
+  "author": "keen",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vlinr/smart-review.git"
+  },
+  "bugs": {
+    "url": "https://github.com/vlinr/smart-review/issues"
+  },
+  "homepage": "https://github.com/vlinr/smart-review#readme",
   "dependencies": {
     "chalk": "^5.3.0",
     "glob": "^10.3.10",
