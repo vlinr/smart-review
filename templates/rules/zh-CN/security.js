@@ -9,7 +9,7 @@ export default [
     suggestion: '使用环境变量或安全的密钥管理服务',
     flags: 'gi',
     extensions: ['.js', '.ts', '.java', '.cs', '.php', '.py', '.rb', '.go'],
-    excludePatterns: ['//.*', '/\\*[\\s\\S]*?\\*/', '(example|test|demo|placeholder|xxx|123|abc|password|secret)']
+    excludePatterns: ['//.*', '/\\*[\\s\\S]*?\\*/', '["\'](example|placeholder|xxx+|changeme|dummy|your-?(password|secret|api-?key|token))["\']']
   },
   {
     id: 'SEC002',

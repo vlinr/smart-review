@@ -9,7 +9,7 @@ export default [
     suggestion: 'Use environment variables or a secure secret manager',
     flags: 'gi',
     extensions: ['.js', '.ts', '.py', '.java', '.php', '.rb', '.cs'],
-    excludePatterns: ['//.*', '/\\*[\\s\\S]*?\\*/', '(example|test|demo|placeholder|xxx|123|abc|password|secret)']
+    excludePatterns: ['//.*', '/\\*[\\s\\S]*?\\*/', '["\'](example|placeholder|xxx+|changeme|dummy|your-?(password|secret|api-?key|token))["\']']
   },
   {
     id: 'SEC002',

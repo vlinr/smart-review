@@ -2,20 +2,21 @@
 
 > 语言 / Language: [中文](README.md) | [English](README.en-US.md)
 
-🚀 **AI智能代码审查工具** - 结合静态规则检测和AI智能分析，为你的代码提供全方位的安全和质量审查。
+🚀 **AI 智能代码审查工具** — 静态规则秒级扫雷，模型带证据下探定义与调用链；CLI 随时审、Hook 自动拦，安全、逻辑与契约问题一次看清。
 
 ## ✨ 特性
 
-- 🔍 **静态规则检测** - 内置安全、性能、最佳实践规则
-- 🧠 **AI智能分析** - 支持 OpenAI / Anthropic / Gemini 的统一对接
-- 🧩 **审查技能编排** - 支持 Skills 约束输出，强制细化风险分析与修复建议
-- ⚡ **Git Diff增量审查** - 智能识别变更内容，只审查修改的代码行，大幅提升审查效率
-- 🚀 **智能分批处理** - 自动优化大文件处理，支持分段分析
-- 📊 **大文件支持** - 智能分段处理超大文件，突破token限制
-- 🎯 **Git Hook集成** - 支持暂存区文件审查和指定文件审查
-- 📁 **多语言支持** - JavaScript、TypeScript、Python、Java、Go、C++、PHP等
-- ⚙️ **高度可配置** - 自定义规则、风险等级、AI参数
-- 🔧 **自动安装** - 一键安装配置文件和Git Hook
+- 🔍 **静态规则检测** - 安全 / 性能 / 最佳实践（安装后含完整规则模板）
+- 🧠 **AI 智能分析** - OpenAI / Anthropic / Gemini；关注安全漏洞、逻辑缺陷、接口契约、兼容性、性能
+- 🧩 **审查技能 + 证据下探** - 预启用证据溯源、安全深挖、逻辑/契约/性能等；模型可读定义、引用、调用链
+- 🔗 **同仓 API 契约溯源** - 前端 `fetch`/`axios` 可下探后端 route/handler/DTO，核对方法、路径与必填参数
+- 🛡️ **深层安全分析** - 注入/鉴权/IDOR/SSRF/反序列化等清单，不限于 auth 目录
+- ⚡ **Git Diff 增量审查** - 默认只审新增行；`--files` 无变更时回退整文件，`--full` 强制整文件
+- 🚀 **按需分批/分段** - 仅在配置了 `maxRequestTokens` / `maxFilesPerBatch` 时拆批或分段
+- 🎯 **Git Hook 集成** - pre-commit 暂存区审查
+- 📁 **多语言文件** - JS/TS/Vue/Python/Java/Go 等
+- ⚙️ **高度可配置** - 规则、风险等级、工具预算、外置 skills / ai-rules
+- 🌍 **国际化输出** - 终端与模型最终答案跟 `locale`；发给模型的内部提示固定英文
 
 ## 📦 安装
 
@@ -48,11 +49,132 @@ node bin/install.js
 ```
 .smart-review/
 ├── smart-review.json   # 主配置文件
-├── ai-rules/           # AI规则目录
-└── local-rules/        # 本地静态规则目录
-    ├── security.js     # 安全规则
-    ├── performance.js  # 性能规则
-    └── best-practices.js # 最佳实践规则
+├── ai-rules/           # 用户自定义 AI 提示（原文注入）
+├── skills/             # 可选：外置文档型技能
+└── local-rules/        # 本地静态规则（安装时从模板复制）
+    ├── security.js
+    ├── performance.js
+    └── best-practices.js
+```
+
+### 默认审查画像
+
+不额外改配置时，大致是：
+
+| 项 | 默认 |
+|----|------|
+| 范围 | Diff 增量（`reviewOnlyChanges: true`）；只审 `+` 行 |
+| 技能 | 证据溯源、API 契约溯源、深层安全、逻辑、接口契约、性能、运行时兼容等（见 [高级审查能力](#-高级审查能力默认开箱即用)） |
+| 工具 | `tools.strategy: conservative`（约 6 次）+ `evidenceMaxCalls: 12` |
+| 分段 | 未配 `maxRequestTokens` 则不分段 |
+| Loop / 修复闭环 | 默认关闭 |
+| 静态命中阻断 | `runWhenBlocked: false` 时可能跳过 AI |
+
+### 🎯 高级审查能力（默认开箱即用）
+
+除静态规则与「只看 diff 片段」外，Smart Review 默认预启用一批**维度技能**和**文档型技能**，并在 diff 模式下打开**证据下探工具**（`tools.strategy: conservative`）。模型可以读仓库里的定义与引用，做**关联分析**，而不只凭片段猜测。
+
+> 发给模型的内置技能与工具说明为英文；下面用中文概括能力。终端输出与问题描述仍跟 `locale`。
+
+#### 1. 证据溯源与关联分析（`evidence-trace`）
+
+**解决什么问题**：变更里调用了某个函数、读了某个配置、发了一次 HTTP 请求——单看 `+` 行往往无法判断是否真的有问题。
+
+**会怎么做**：
+
+- 从**本次变更片段**出发，用只读工具追符号定义、参数契约、错误处理、配置含义
+- **关联分析**：`find_references` 查定义/引用，`trace_callers` 看「谁调用了它、这次改动会影响谁」
+- 被读到的旧代码仅作**证据**，不会把 callee 里原本就存在、与本次改动无关的历史问题当成新 issue
+
+**典型场景**：
+
+| 场景 | 示例 |
+|------|------|
+| 新增/修改函数调用 | 改了 `login()` 入参，需读 `validateUser` 是否校验租户 |
+| 新 import / 类型 / 配置 | 新用了某个 DTO 字段，需读定义确认必填与类型 |
+| `import type` | 类型在编译期擦除，仍要读类型定义文件，避免契约不一致被漏掉 |
+| Monorepo workspace 包 | `@scope/shared/foo` 等内部包 import，需追到 workspace 内源文件 |
+| 生成物（pb/grpc 等） | 审查本次对生成符号的**用法**；改契约时追 `.proto`/schema，不以生成文件为主审查对象 |
+| 错误处理是否覆盖 | callee 可能抛错，本次分支是否遗漏 catch |
+| 可达性变化 | 本次改动是否让旧路径在新输入下被触发 |
+
+**常用工具链**：`resolve_import` → `read_symbol_context` / `read_around` → `find_references`（可传 `fromPath`，优先同文件/同目录，压制同名符号）→ `trace_callers`；仍失败则 `search_in_repo`。
+
+**导入解析（零配置）**：`resolve_import` 自动读取 tsconfig/jsconfig（含 `extends`）、Vite/Webpack/Nuxt 别名（`@/`、`~/`、`#/`）、pnpm/npm **workspace 包**、barrel `export … from`（最多 2 跳），以及 Python / Go（含 `internal/`）/ Java / PHP 等 import。**无需**在 `smart-review.json` 里配置路径别名。
+
+#### 2. 同仓 API 契约溯源（`api-boundary-trace`）
+
+**解决什么问题**：前后端在同一仓库（monorepo）时，前端改了 API 调用，或后端改了 route/DTO/校验，单文件审查容易漏掉**跨端契约不一致**。
+
+**会怎么做**：
+
+1. 从变更片段提取：`method`、路径、query/body/header 参数名
+2. `search_in_repo` 定位后端 `@Get` / `router.post` / handler / OpenAPI 片段
+3. `read_around` / `read_symbol_context` 读 DTO、required 字段、校验逻辑
+4. 若审的是**后端签名变更**：再用 `find_references` / `trace_callers` 找仓库内调用方是否仍匹配
+
+**核对项**：HTTP 方法、路径、必填参数、类型/枚举、可见的鉴权头是否缺失。
+
+**报告原则**：issue 仍落在**本次变更的文件/片段**上；定义侧内容只作证据引用。找不到 in-repo 定义时会报 Medium「需人工确认」，不会默默当成通过。
+
+**示例**：
+
+- ✅ 前端新增 `POST /api/order` 未传 `userId`，handler 要求必填 → 报在前端调用片段
+- ✅ 后端把 `userId` 改为必填，仓库内前端调用仍省略 → 报在后端变更（附调用方证据）
+- ❌ 下探时在 handler 里看到无关旧日志 → **不报**（非本次引入）
+
+#### 3. 深层安全分析（`security-deep`）
+
+**解决什么问题**：通用 diff 审查容易漏掉 OWASP 类、权限边界、出站请求等**系统性安全风险**。
+
+**额外检查清单**（不限 auth 目录；任何新输入面、鉴权、出站网络、敏感数据都适用）：
+
+| 类别 | 关注点 |
+|------|--------|
+| 注入 | SQL/NoSQL/命令/LDAP/模板注入 |
+| 鉴权 | 身份/权限、水平/垂直越权、IDOR |
+| 敏感数据 | 硬编码密钥、日志泄露；测试里像真密钥的值仍按 High |
+| 会话 | Cookie HttpOnly/Secure/SameSite、固定/失效 |
+| 输入校验 | 长度、类型、白名单、上传路径 |
+| SSRF | 用户可控 URL 访问内网或 metadata |
+| 反序列化 | 不可信数据进入反序列化或对象合并 |
+| CORS / 重定向 | 过宽 CORS、开放重定向 |
+
+每条 issue 需含：路径、片段、风险原因、可执行修复建议；不因「需人工确认」或测试路径自动降为 Suggestion。
+
+#### 4. 其他默认预启用能力
+
+| 技能 | 作用 |
+|------|------|
+| `logic-correctness` | 分支、边界、空值、竞态、错误路径 |
+| `api-contract` | 方法/路径/载荷契约、幂等、状态码、破坏性兼容 |
+| `performance-hotpath` | 热路径上的 N+1、阻塞、多余分配 |
+| `runtime-compat` | Node/浏览器/API 版本与运行时差异 |
+| `diff-risk-guard` | 只审 `+` 行；被调方历史问题不当成本次新 issue |
+| `evidence-enforcer` | 每条 issue 必须有证据片段、风险、原因、建议 |
+
+文档型技能（`evidence-trace`、`api-boundary-trace`、`security-deep`）预启用时会注入**完整检查清单**；一般无需手写 `[SKILL_SELECT]`。外置 `.smart-review/skills/*.md` 可按 `match` 路径追加团队规范。
+
+#### 5. 调优建议
+
+| 需求 | 配置 |
+|------|------|
+| 同仓 API 多步下探不够 | 提高 `tools.evidenceMaxCalls`（默认 12）或 `tools.strategy: balanced` |
+| 暂时关闭工具（省 token） | `tools.strategy: off` 或 `ai.tools.enabled: false` |
+| 把静态命中喂给 AI | `includeStaticHints: true` |
+| 加深一轮复检 | `loop.enabled: true` |
+
+```mermaid
+flowchart LR
+  A[Git diff 变更片段] --> B[预启用技能]
+  B --> C{能否仅凭片段判断?}
+  C -->|否| D[证据工具下探]
+  D --> E[读定义 / 引用 / 调用链]
+  D --> F[同仓 API 搜 route/handler]
+  E --> G[关联分析后结论]
+  F --> G
+  C -->|是| G
+  G --> H[issue 落在变更片段]
 ```
 
 ### 2. 基本使用
@@ -92,20 +214,9 @@ node bin/review.js --files src/modified-file.js
 4. 保持完整的上下文信息，确保分析准确性
 
 #### 大文件分段分析
-对于超大文件，工具会自动进行智能分段处理：
+默认不按 token 分段。只有在配置了 `ai.maxRequestTokens` 时，超过预算的文件才会分段；未配置则尽量整文件送出。
 ```bash
 node bin/review.js --files test/src/large-test-file.js
-```
-
-输出示例：
-```
-代码审查审查中，请等待...
-🔍 开始逐段分析文件: test/src/large-test-file.js，共 2 段
-🔍 开始分析第 1/2 段 (行 1-150)，预估2400 tokens, 共150 行代码
-   ✅ 第 1 段分析完成，发现 8 个问题
-🔍 开始分析第 2/2 段 (行 130-302)，预估2800 tokens, 共172 行代码
-   ✅ 第 2 段分析完成，发现 12 个问题
-🎯 分段分析完成，共发现 20 个问题
 ```
 
 #### 批次处理示例
@@ -133,9 +244,10 @@ node bin/review.js --files test/src/large-test-file.js
 ```
 
 #### 中断与终端兼容
-- 支持在 Git Bash、CMD、PowerShell 中进行交互中断
-- 审查过程中输入 `q` 或按 `Esc` 可中断审查并输出已完成结果
-- 中断不会被视为审查失败，只有存在阻断风险才会阻止提交
+- 支持 Git Bash、CMD、PowerShell、常见 IDE 终端
+- 审查中按 `q` / `Esc`（或 Ctrl+C）可中断并输出已完成结果
+- 用户中断退出码一般为 **130**（SIGTERM 为 143）；中断本身不是「可重试失败」
+- 仅当已有阻断级问题，或 AI 审查未完成（空/无效结论）时，才会以失败码结束提交检查
 
 ## ⚙️ 配置文件
 
@@ -148,51 +260,7 @@ node bin/review.js --files test/src/large-test-file.js
     "provider": "openai",
     "model": "deepseek-chat",
     "apiKey": "your-api-key",
-    "baseURL": "https://api.deepseek.com/v1",
-    "reviewOnlyChanges": true,
-    "maxResponseTokens": 8192,
-    "maxFileSizeKB": 500,
-    "enabledFor": [".js", ".ts", ".jsx", ".less", ".css", ".tsx", ".vue", ".py", ".java", ".go", ".rs", ".cpp", ".c", ".cs", ".php"],
-    "useStaticHints": true,
-    "maxRequestTokens": 8000,
-    "minFilesPerBatch": 1,
-    "maxFilesPerBatch": 20,
-    "tokenRatio": 4,
-    "chunkOverlapLines": 5,
-    "includeStaticHints": true,
-    "skills": {
-      "enabled": true,
-      "strict": false,
-      "maxSkillsPerRequest": 4,
-      "required": ["DIFF_RISK_GUARD", "EVIDENCE_ENFORCER"],
-      "optional": ["SECURITY_DEEP", "LOGIC_CORRECTNESS", "API_CONTRACT"],
-      "routes": [
-        {
-          "match": ["**/auth/**", "**/security/**"],
-          "modes": ["diff", "batch", "segment"],
-          "add": ["SECURITY_DEEP", "API_CONTRACT"]
-        }
-      ]
-    },
-    "tools": {
-      "enabled": false,
-      "maxCalls": 2,
-      "maxReadLines": 400,
-      "maxSearchMatches": 50,
-      "maxSearchFiles": 120,
-      "maxListFiles": 200,
-      "allow": [
-        "read_file",
-        "get_staged_diff",
-        "list_files",
-        "search_in_file",
-        "get_file_outline",
-        "search_in_repo",
-        "list_changed_files"
-      ]
-    },
-    "temperature": 0,
-    "concurrency": 3
+    "baseURL": "https://api.deepseek.com/v1"
   },
   "riskLevels": {
     "critical": { "block": true },
@@ -201,19 +269,23 @@ node bin/review.js --files test/src/large-test-file.js
     "low": { "block": false },
     "suggestion": { "block": false }
   },
-  "suppressLowLevelOutput": false,
-  "useExternalRulesOnly": false,
-  "fileExtensions": [".js", ".jsx", ".less", ".css", ".ts", ".tsx", ".vue", ".svelte", ".py", ".java", ".go", ".rs", ".cpp", ".c", ".h", ".php", ".rb", ".html", ".css", ".scss", ".less"],
-  "ignoreFiles": [
-    "**/node_modules/**",
-    "**/dist/**",
-    "**/build/**",
-    "**/coverage/**",
-    "**/*.min.js",
-    "**/*.bundle.js",
-    "test/src/risky-code.js",
-    "large.*\\.js$"
-  ]
+  "locale": "zh-CN"
+}
+```
+
+未写出的采样/上限字段**不会限制模型**，也不会塞进请求体。需要时再显式配置，例如：
+
+```json
+{
+  "ai": {
+    "temperature": 0,
+    "maxResponseTokens": 8192,
+    "maxRequestTokens": 8000,
+    "maxFilesPerBatch": 10,
+    "maxFileSizeKB": 500,
+    "concurrency": 3,
+    "tools": { "strategy": "conservative", "evidenceMaxCalls": 12 }
+  }
 }
 ```
 
@@ -225,42 +297,41 @@ node bin/review.js --files test/src/large-test-file.js
 - `model`: 对应提供方的模型名称
 - `apiKey`: 统一 API 密钥字段（也可通过环境变量注入）
 - `baseURL`: API基础URL
-- `reviewOnlyChanges`: 是否启用Git Diff增量审查模式。`true`时只审查变更的代码行，`false`时审查整个文件内容。默认为`true`，大幅提升审查效率
-- `maxResponseTokens`: AI响应最大token数
-- `maxFileSizeKB`: 单文件最大大小限制
+- `reviewOnlyChanges`: 是否启用Git Diff增量审查。`true`（默认）时有变更审变更，没有可审变更的文件回退整文件；`--full` 强制整文件
+- `maxResponseTokens`: 可选，AI响应最大token数；不配则不传 `max_tokens`
+- `maxFileSizeKB`: 可选，超过该大小跳过 AI；不配则不因体积跳过
 - `enabledFor`: AI分析支持的文件扩展名
-- `useStaticHints`: 是否将静态规则作为AI分析的上下文
-- `maxRequestTokens`: 请求最大token数
+- `includeStaticHints`（或兼容别名 `useStaticHints`）: 是否将静态规则发现作为 AI 上下文
+- `maxRequestTokens`: 可选，单次请求 token 预算；不配则不分段、不按 token 拆批
 - `minFilesPerBatch`: 批处理最小文件数
-- `maxFilesPerBatch`: 批处理最大文件数
+- `maxFilesPerBatch`: 可选，每批最多文件数；不配则不按文件数拆批
 - `tokenRatio`: Token估算比例
-- `chunkOverlapLines`: 分段重叠行数，保持上下文连续性
-- `includeStaticHints`: 是否在AI分析中包含静态规则提示
-- `temperature`: AI模型的创造性参数，0表示最确定性的输出
-- `concurrency`: 并发AI请求数量，默认3个。设置为1或更小时使用串行处理，大于1时启用并发处理以提升性能
-- `skills.enabled`: 是否启用审查技能编排
-- `skills.strict`: 是否强制检查输出是否满足“路径/片段/原因/建议”约束
-- `skills.maxSkillsPerRequest`: 单次请求最多启用的技能数量
-- `skills.required`: 必选技能列表
-- `skills.optional`: 可选技能列表（按模式补充）
-- `skills.routes`: 按文件路径和模式动态追加技能（`match/modes/add`）
-- `tools.enabled`: 启用本地只读工具调用（见下方工具清单）
-- `tools.maxCalls`: 单次请求最多工具调用轮次
-- `tools.maxReadLines`: `read_file` 单次读取最大行数
-- `tools.maxSearchMatches`: `search_in_file` / `search_in_repo` 单次最多返回匹配条数
-- `tools.maxSearchFiles`: `search_in_repo` 单次最多扫描文件数
-- `tools.maxListFiles`: `list_files` 单次最多返回文件数
-- `tools.allow`: 工具白名单（仅允许模型调用白名单中的工具）
+- `chunkOverlapLines`: 分段重叠行数，仅在配置了 `maxRequestTokens` 并实际分段时生效
+- `temperature`: 可选采样参数；不配则不发给模型
+- `concurrency`: 并发AI请求数量，默认3。`<=1` 串行，`>1` 且存在多个批次时并行
+- `skills.enabled`: 是否启用技能大纲
+- `skills.path`: 外置技能文档目录（相对 `.smart-review/`，默认 `skills`）
+- `tools.strategy`: 工具策略：`off`（关闭）/ `conservative`（默认，约 6 次）/ `balanced`（约 12 次）/ `aggressive`（约 20 次）
+- `tools.evidenceMaxCalls`: 证据下探调用上限，默认 **12**（便于同仓 API 多步下探）
+- `loop.enabled`: 多轮审查 Loop
+- `fixLoop.enabled`: 审查-修复闭环（输出可应用修复代码）
+- `fixLoop.autoApply`: 是否自动应用修复并再审查（需 `fixLoop.enabled: true`）
 
-#### AI 只读工具清单 (`ai.tools.allow`)
-- `read_file`: 读取指定文件的行区间
-- `get_staged_diff`: 获取暂存区 diff（可按文件路径过滤）
-- `list_files`: 递归列出仓库内文件（支持子目录和关键字/通配符过滤）
-- `search_in_file`: 在单个文件内按文本或正则搜索
-- `get_file_outline`: 提取文件结构轮廓（类/函数/方法等）
-- `search_in_repo`: 在仓库范围内按文本或正则搜索（支持扫描文件数和结果数上限）
-- `list_changed_files`: 获取 Git 变更文件列表（支持 staged/unstaged 和状态过滤）
+#### 技能机制说明
 
+默认行为与完整能力说明见上文 **[高级审查能力](#-高级审查能力默认开箱即用)**。此处仅补充配置要点：
+
+- 每次审查会带上**技能大纲**；上述技能默认**预启用**，一般无需 `[SKILL_SELECT]`。
+- 外置 `.smart-review/skills/*.md`：无 `match` 则每次注入；有 `match` 仅路径命中时注入。
+- 问题报告始终落在**本次变更片段**；下探/关联分析所得定义仅作证据。
+
+#### AI 只读工具（含证据下探）
+
+基础工具：`read_file`、`get_staged_diff`、`list_files`、`search_in_file`、`get_file_outline`、`search_in_repo`、`list_changed_files`、`get_file_diff`。
+
+证据溯源额外可用：`resolve_import`（**自动**读取 tsconfig/Vite/Webpack/Nuxt、`@/`/`~/`/`#/` 别名、pnpm/npm workspace、barrel 再导出、go.mod/composer 等；支持 Python/Go/Java/PHP 等 import）、`read_around`、`find_references`（建议传 `fromPath` 降噪同名符号）、`trace_callers`、`read_symbol_context`。`import type` 与 pb/grpc 等生成物的溯源策略已写入内置 prompt。解析不到时会提示 AI 用 `search_in_repo` 继续溯源——**无需在 smart-review.json 里配置别名**。
+
+可用 `ai.tools.allow` 收窄列表；未开证据技能且 `strategy: off` 时可不启工具。
 #### 风险等级配置 (`riskLevels`)
 - `critical`: 致命风险
 - `high`: 高危风险
@@ -369,7 +440,7 @@ function unsafeFunction() {
 - 忽略注释必须在独立的注释行中，不能与代码混写
 - `review-disable-next-line` 只影响紧接着的下一行代码
 - `review-disable-start/end` 必须成对出现，影响两个注释之间的所有代码
-- 文件内忽略只影响静态规则检测，不影响AI分析
+- 文件内忽略对**静态规则与 AI** 都生效（送审前会剥离禁用区）
 
 ## 🔧 自定义规则
 
@@ -425,138 +496,92 @@ export const rules = {
 
 ### AI 提示词
 
-在 `.smart-review/ai-rules/` 目录下创建自定义AI提示词文件：
+在 `.smart-review/ai-rules/` 放入文本文件即可；内容会**原文**注入模型上下文（可用中文写团队规范）。
 
-**`.smart-review/ai-rules/custom-prompts.txt`**
-```text
-请特别关注以下代码模式：
-1. 检查是否存在未处理的Promise rejection
-2. 验证API调用是否有适当的错误处理
-3. 确保敏感数据不会被意外记录到日志中
-```
+发给模型的**内置**系统提示与技能清单为英文；最终问题描述语言由 `locale` 控制（见下文国际化）。
 
-**`.smart-review/ai-rules/security-focus.txt`**
-```text
-安全审查重点：
-- 检查用户输入验证
-- 确认权限控制逻辑
-- 验证数据加密和脱敏处理
-```
+> 💡 文件可以是 `.txt`、`.md` 等任意文本。
 
-> 💡 **提示**: AI提示词文件可以是 `.txt`、`.md` 或任何文本文件，内容会被添加到AI分析的上下文中。
+## 📋 静态规则说明
 
-## 📋 内置规则
+### 两层规则
 
-### 安全规则 (Security)
-- **SEC001**: 硬编码密码检测 - 检测硬编码的密码或密钥
-- **SEC002**: SQL注入风险 - 检测字符串拼接SQL查询
-- **SEC003**: XSS风险 - 检测直接操作HTML内容的风险
-- **SEC004**: 命令注入风险 - 检测命令执行函数调用
+| 来源 | 内容 |
+|------|------|
+| 包内兜底 `defaultRules` | 少量核心规则（如 SEC001–003、PERF001–002、部分 BP），未安装模板时可用 |
+| 安装模板 → `.smart-review/local-rules/` | 完整集：安全约 SEC001–034、性能 PERF001–013、最佳实践 BP 等 |
 
-### 性能规则 (Performance)
-- **PERF001**: 循环内数据库查询 - 检测可能导致N+1查询问题的代码
-- **PERF002**: 内存泄漏风险 - 检测定时器使用但未清理的情况
+默认**合并模式**：外置与内置合并，同名 id 以外置为准。`useExternalRulesOnly: true` 则只用 `local-rules`。
 
-### 最佳实践 (Best Practices)
-- **BP001**: 调试代码 - 检测console.log、print、alert等调试代码
-- **BP002**: 魔法数字 - 检测常见的魔法数字，建议使用常量
+安装后的规则示例（完整列表见 `templates/rules/<locale>/`）：
+
+### 安全规则 (Security) 摘录
+- **SEC001**: 硬编码密码/密钥
+- **SEC002**: SQL 注入风险
+- **SEC003**: XSS 风险
+- 以及命令注入、路径遍历、SSRF、弱加密、敏感日志等（安装模板内）
+
+### 性能规则 (Performance) 摘录
+- **PERF001**: 循环内请求 / N+1 类问题
+- **PERF002**: 定时器泄漏等
+- 以及同步阻塞、循环内 JSON/正则、DOM 抖动等（安装模板内）
+
+### 最佳实践 (Best Practices) 摘录
+- **BP001**: 调试输出
+- **BP002**: 魔法数字
+- 以及空 catch、过宽异常等（安装模板内）
 
 ## 🚀 性能优化
 
 ### Git Diff 增量审查优化
 
-Smart Reviewer 的核心性能优化特性，通过智能识别变更内容，实现高效的增量审查：
+Smart Reviewer 的核心优化：默认只审变更内容（Diff）。
 
 #### 性能提升效果
-- **审查速度提升 70-90%** - 只分析变更的代码行，跳过未修改内容
-- **Token消耗减少 60-80%** - 大幅降低AI API调用成本
-- **内存占用优化** - 只加载和处理变更相关的代码段
-- **网络传输优化** - 减少API请求的数据量
+- 日常小改动可明显减少送审体量与耗时
+- 降低 AI token 消耗与费用
+- 大仓库提交时反馈更快
 
 #### 适用场景
-- ✅ **日常开发提交** - 小范围代码修改，审查速度极快
-- ✅ **功能迭代** - 针对性审查新增和修改的功能代码
-- ✅ **Bug修复** - 快速验证修复代码的安全性和质量
-- ✅ **代码重构** - 专注于重构部分的影响分析
+- ✅ 日常开发提交、功能迭代、Bug 修复
+- ⚠️ 需要整文件上下文时用 `--full` 或 `reviewOnlyChanges: false`
 
 #### 智能上下文保持
 ```json
 {
   "ai": {
     "reviewOnlyChanges": true,
-    "contextMergeLines": 10,     // 保持变更行周围的上下文
-    "chunkOverlapLines": 5       // 确保分析的连续性
+    "contextMergeLines": 10
   }
 }
 ```
 
 ### 大文件处理策略
 
-Smart Reviewer 采用智能分批处理技术，能够高效处理超大文件：
+默认**不**按 token 自动分段。需要时再配置：
 
-#### 自动分段机制
-- **智能检测**: 自动识别超过token限制的大文件
-- **分段处理**: 将大文件分割为多个重叠段落
-- **上下文保持**: 通过重叠行数保持代码上下文连续性
-- **并行分析**: 支持多段并行处理，提升分析速度
+#### 按需分段
+- 未配置 `maxRequestTokens`：尽量整文件（或按 `maxFilesPerBatch` 仅按文件数拆批）
+- 配置了预算后：超限文件切成重叠段，并可与 `concurrency` 配合
 
-#### Token 管理
+#### Token / 批次示例
 ```json
 {
   "ai": {
-    "maxRequestTokens": 8000,      // 单次请求最大 token 数
-    "chunkOverlapLines": 5,        // 分段重叠行数
-    "minFilesPerBatch": 1,         // 每批次最少文件数
-    "maxFilesPerBatch": 10         // 每批次最多文件数
+    "maxRequestTokens": 8000,
+    "chunkOverlapLines": 5,
+    "maxFilesPerBatch": 10,
+    "concurrency": 3,
+    "tools": { "strategy": "balanced", "evidenceMaxCalls": 12 }
   }
 }
 ```
 
-#### 性能优化建议
-
-1. **合理设置批处理参数**
-   ```json
-   {
-     "ai": {
-       "maxRequestTokens": 6000,
-       "chunkOverlapLines": 10,
-       "minFilesPerBatch": 1,
-       "maxFilesPerBatch": 5
-     }
-   }
-   ```
-
-2. **启用并发处理**
-   ```json
-   {
-     "ai": {
-       "concurrency": 3,        // 并发 AI 请求数量
-       "maxFilesPerBatch": 5    // 控制批次文件数
-     }
-   }
-   ```
-
-3. **调整智能分批参数**
-   ```json
-   {
-     "ai": {
-       "minFilesPerBatch": 1,
-       "maxFilesPerBatch": 5
-     }
-   }
-   ```
-
-4. **文件过滤优化**
-   ```json
-   {
-     "ignoreFiles": [
-       "**/*.min.js",         // 跳过压缩文件
-       "**/dist/**",          // 跳过构建产物
-       "**/*.generated.*"     // 跳过生成文件
-     ]
-   }
-   ```
-
+#### 优化建议
+1. 先靠 Diff 增量，而不是一上来就分段
+2. 同仓 API 下探不够时提高 `evidenceMaxCalls` 或 `tools.strategy`
+3. 用 `ignoreFiles` 跳过 `dist`、压缩包、生成代码
+4. 敏感路径可开 `loop.enabled` 加深一轮
 ### 内存和网络优化
 
 - **流式处理**: 大文件采用流式读取，减少内存占用
@@ -652,16 +677,16 @@ export SMART_REVIEW_LOCALE=zh-CN  # 或 en-US
 
 ## 🌍 国际化 (i18n)
 
-- 配置项 `locale`：在 `.smart-review/smart-review.json` 顶层设置输出与模板语言，支持 `zh-CN`、`en-US`。示例：`{"locale": "en-US"}`。
-- 环境变量 `SMART_REVIEW_LOCALE`：优先级最高，安装和复制模板时将按该值选择语言目录。
-- 选择优先级：环境变量 > 项目配置 `.smart-review/smart-review.json` > 模板默认配置 `templates/smart-review.json` > `zh-CN`。
-- 模板目录结构：`templates/rules/<locale>/security.js|performance.js|best-practices.js`；当指定语言缺失某文件时自动回退到 `zh-CN`。
-- 控制台与 Git 钩子提示会随 `locale` 切换语言，无需额外配置。
+- `locale`（如 `zh-CN` / `en-US`）控制：**终端文案**、安装模板语言、以及要求模型**最终答案**使用的语言。
+- **发给模型的内部提示词 / 内置技能正文固定为英文**，与 `locale` 无关。
+- 环境变量 `SMART_REVIEW_LOCALE` 优先于配置文件。
+- 选择优先级：环境变量 > `.smart-review/smart-review.json` > 模板默认 > `zh-CN`。
+- 静态规则模板：`templates/rules/<locale>/`；缺失时回退 `zh-CN`。
 - 切换示例：
   - PowerShell：`$env:SMART_REVIEW_LOCALE='en-US'; node bin/install.js`
   - Bash：`export SMART_REVIEW_LOCALE=en-US && node bin/install.js`
 
-如需新增语言（例如 `ja-JP`），在 `templates/rules/ja-JP/` 下添加三类规则模板文件，并在配置中设置 `"locale": "ja-JP"` 或通过环境变量切换即可。
+如需新增语言，在 `templates/rules/<locale>/` 添加规则模板，并设置对应 `locale`。
 
 ## 🔧 命令行参数
 
@@ -670,7 +695,8 @@ smart-review [options]
 
 选项:
   --staged              审查 Git 暂存区文件
-  --files <files>       审查指定文件（逗号分隔）
+  --files <files>       审查指定文件（逗号分隔；有 git 变更审变更，没有则审整文件）
+  --full                强制整文件审查（忽略 diff）
   --ai                  强制启用 AI 分析
   --no-ai               禁用 AI 分析
   --diff-only           仅审查变更行（Git Diff 模式）
@@ -678,20 +704,18 @@ smart-review [options]
 ```
 
 **增量审查相关说明：**
-- `--diff-only`：仅审查变更行（Git Diff 模式），覆盖配置项 `ai.reviewOnlyChanges`
-- 禁用增量审查：在 `.smart-review/smart-review.json` 将 `ai.reviewOnlyChanges` 设为 `false`，适用于需要全面审查的场景
+- `--files a.js,b.js`：按文件分流。有可审新增行的走 diff，完全没有 git 变更的回退整文件
+- `--full`：名单内全部按整文件审查
+- `--diff-only`：仅审查变更行，覆盖配置项 `ai.reviewOnlyChanges`
+- 禁用增量审查：`--full`，或在配置中将 `ai.reviewOnlyChanges` 设为 `false`
 
 **使用示例：**
 ```bash
 # 强制使用增量审查模式
 smart-review --staged --diff-only
 
-# 审查完整文件内容（在配置中关闭增量）
-# .smart-review/smart-review.json
-{
-  "ai": { "reviewOnlyChanges": false }
-}
-smart-review --files src/important.js
+# 强制审查完整文件
+smart-review --files src/important.js --full
 
 # 结合其他参数使用
 smart-review --staged --diff-only --debug
@@ -771,7 +795,17 @@ code_review:
    - 确保文件没有语法错误
    - 调整 `maxRequestTokens` 配置
 
-6. **内存占用过高**
+6. **AI 审查未完成 / API 失败 / 空结论**
+   ```
+   AI审查失败：503 分组 default 下模型 xxx 无可用渠道
+   ```
+   或
+   ```
+   AI审查未完成（模型返回空结果或无效结论）
+   ```
+   **说明**: AI 已启用但请求失败（503/401/模型名错误等）或返回空结论时，**不会视为通过**，提交会被阻断。请检查 `apiKey`、`baseURL`、`model` 配置或稍后重试。
+
+7. **内存占用过高**
   ```
   ❌ 内存不足错误
   ```
@@ -780,7 +814,7 @@ code_review:
   - 调整 `minFilesPerBatch`/`maxFilesPerBatch` 控制每批文件数量
   - 添加更多文件到 `ignoreFiles` 列表
 
-7. **Token 限制错误**
+8. **Token 限制错误**
   ```
   ❌ Request too large
   ```

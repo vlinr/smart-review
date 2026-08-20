@@ -15,7 +15,6 @@ class ReviewCLI {
     this.projectRoot = this.findProjectRoot();
     this.stopKeyListener = null;
     this.stopSignalListener = null;
-    this.promptInterface = null;
   }
 
   findProjectRoot() {
@@ -45,9 +44,7 @@ class ReviewCLI {
       const config = await configLoader.loadConfig();
       this.config = config;
       logger.progress(t(config, 'cli_start'));
-      const cancelToken = this.setupInterruptListener(config);
-      this.cancelToken = cancelToken;
-      
+
       // 调试日志开关（命令行）
       if (args.includes('--debug')) {
         logger.debugMode = true;
@@ -64,10 +61,16 @@ class ReviewCLI {
       }
       
       // 处理Git Diff审查相关参数
-      if (args.includes('--diff-only')) {
-        config.ai = { ...config.ai, reviewOnlyChanges: true };
+      if (args.includes('--full')) {
+        config.ai = { ...config.ai, reviewOnlyChanges: false, forceFullFile: true };
+        logger.info(t(config, 'full_mode_cli_enabled'));
+      } else if (args.includes('--diff-only')) {
+        config.ai = { ...config.ai, reviewOnlyChanges: true, forceFullFile: false };
         logger.info(t(config, 'diff_only_enabled'));
       }
+
+      const cancelToken = this.setupInterruptListener(config);
+      this.cancelToken = cancelToken;
       
       const rules = await configLoader.loadRules(config);
       // 创建审查器
@@ -84,6 +87,7 @@ class ReviewCLI {
         logger.info(t(config, 'usage_staged'));
         logger.info(t(config, 'usage_diffonly'));
         logger.info(t(config, 'usage_files'));
+        logger.info(t(config, 'usage_full'));
         exitCode = 1;
         return;
       }
@@ -98,18 +102,21 @@ class ReviewCLI {
         } else {
           exitCode = reason === 'sigterm' ? 143 : 130;
         }
+      } else if (result?.reviewIncomplete) {
+        exitCode = 1;
       } else {
         exitCode = hasBlocking ? 1 : 0;
       }
     } catch (error) {
-      logger.error(t(this.config || process.env.SMART_REVIEW_LOCALE || 'zh-CN', 'review_error', { error: error.message }));
-      exitCode = 1;
-    } finally {
-      if (this.stopKeyListener) this.stopKeyListener();
-      if (this.stopSignalListener) this.stopSignalListener();
-      if (this.promptInterface) {
-        try { this.promptInterface.close(); } catch (e) {}
+      if (this.cancelToken && this.cancelToken.isCancelled && this.cancelToken.isCancelled()) {
+        exitCode = this.cancelToken.reason === 'sigterm' ? 143 : 130;
+      } else {
+        logger.error(t(this.config || process.env.SMART_REVIEW_LOCALE || 'zh-CN', 'review_error', { error: error.message }));
+        exitCode = 1;
       }
+    } finally {
+      try { if (this.stopKeyListener) this.stopKeyListener(); } catch (e) {}
+      try { if (this.stopSignalListener) this.stopSignalListener(); } catch (e) {}
       if (this.cancelToken && this.cancelToken.isCancelled && this.cancelToken.isCancelled()) {
         const hasBlocking = !!result?.blockSubmission;
         const reason = this.cancelToken?.reason || '';
@@ -155,12 +162,18 @@ class ReviewCLI {
             logger.info(t(config, 'risk_level_label') + displayRisk(issue.risk, config));
             logger.info(t(config, 'risk_reason_label') + issue.message);
             if (issue.suggestion) logger.info(t(config, 'suggestions_label') + issue.suggestion);
+            if (issue.fixSnippet) {
+              logger.info(t(config, 'fix_code_label'));
+              logger.info(this.formatSnippet(issue.fixSnippet));
+            }
           });
         });
       }
 
     // AI代码分析结果（若有）
-    if (result.aiRan) {
+    if (result.reviewIncomplete && !result.aiRan) {
+      logger.info('\n' + t(config, 'ai_analysis_header'));
+    } else if (result.aiRan) {
       logger.info('\n' + t(config, 'ai_analysis_header'));
       // 说明：行号可能不连续是预处理所致（剥离注释/无需审查片段），请忽略行号跳跃
       logger.info(t(config, 'tip_line_numbers'));
@@ -197,9 +210,21 @@ class ReviewCLI {
             logger.info(t(config, 'risk_level_label') + displayRisk(issue.risk, config));
             logger.info(t(config, 'risk_reason_label') + issue.message);
             if (issue.suggestion) logger.info(t(config, 'suggestions_label') + issue.suggestion);
+            if (issue.fixSnippet) {
+              logger.info(t(config, 'fix_code_label'));
+              logger.info(this.formatSnippet(issue.fixSnippet));
+            }
           });
         });
       }
+    }
+
+    if (result.fixLoop && result.fixLoop.applied > 0) {
+      logger.info('\n' + t(config, 'fix_apply_done', {
+        applied: result.fixLoop.applied,
+        failed: result.fixLoop.failed,
+        rounds: result.fixLoop.rounds
+      }));
     }
   }
 
@@ -337,40 +362,15 @@ class ReviewCLI {
       try { inputStream.setEncoding && inputStream.setEncoding('utf8'); } catch (e) {}
       inputStream.resume();
       this.stopKeyListener = () => {
-        inputStream.off('keypress', handleKey);
-        inputStream.off('data', handleData);
+        try { inputStream.off('keypress', handleKey); } catch (e) {}
+        try { inputStream.off('data', handleData); } catch (e) {}
         try { inputStream.setRawMode && inputStream.setRawMode(false); } catch (e) {}
-        inputStream.pause();
-        try { inputStream.destroy && inputStream.destroy(); } catch (e) {}
-      };
-      if (process.stdout && process.stdout.isTTY && !this.promptInterface) {
-        const rl = readline.createInterface({
-          input: inputStream,
-          output: process.stdout,
-          terminal: true
-        });
-        this.promptInterface = rl;
-        const promptText = t(config, 'interrupt_prompt');
-        const showPrompt = () => {
-          try {
-            rl.setPrompt(promptText);
-            rl.prompt(true);
-          } catch (e) {}
-        };
-        rl.on('line', (line) => {
-          const value = String(line || '').trim().toLowerCase();
-          if (value === 'q' || value === 'quit' || value === 'exit') {
-            token.cancel('user');
-            return;
+        try {
+          if (inputStream !== process.stdin && typeof inputStream.pause === 'function') {
+            inputStream.pause();
           }
-          showPrompt();
-        });
-        rl.on('SIGINT', () => token.cancel('sigint'));
-        token.onCancel(() => {
-          try { rl.close(); } catch (e) {}
-        });
-        showPrompt();
-      }
+        } catch (e) {}
+      };
     };
     const bindFromPath = (devicePath) => {
       try {
@@ -416,6 +416,12 @@ class ReviewCLI {
       this.stopKeyListener = () => {};
     }
     bindSignalListener();
+    const hint = t(config, 'interrupt_prompt');
+    if (process.stdout && typeof process.stdout.write === 'function') {
+      process.stdout.write(`${hint}\n`);
+    } else {
+      logger.info(hint);
+    }
     return token;
   }
 }

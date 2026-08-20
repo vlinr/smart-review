@@ -2,17 +2,21 @@
 
 > Language: [English](README.en-US.md) | [中文](README.md)
 
-🚀 AI-powered code review tool combining static rules and AI analysis.
+🚀 **AI-powered code review** — static rules for instant catches, model-driven evidence tracing across defs and call chains; use via CLI anytime or Git Hook automatically, for security, logic, and contract risks.
 
 ## ✨ Features
 
-- Static rule checks for Security, Performance, Best Practices
-- AI analysis with unified OpenAI / Anthropic / Gemini integration
-- Skill-driven review orchestration to enforce detailed risk and fix outputs
-- Smart batching and chunked processing for large files
+- Static rules for security / performance / best practices (full templates after install)
+- AI analysis via OpenAI / Anthropic / Gemini — security, logic bugs, API contracts, compatibility, performance
+- Skills + evidence tracing — pre-enabled evidence trace, security-deep, logic/contract/perf; tools for defs, refs, callers
+- Monorepo API contract tracing — frontend calls traced to backend routes/handlers/DTOs for method/path/required params
+- Deep security review — injection, authz, IDOR, SSRF, deserialization checklist (not limited to auth dirs)
+- Git Diff incremental review by default; `--files` falls back to full file when there is no change; `--full` forces full file
+- Batching/segmentation only when `maxRequestTokens` / `maxFilesPerBatch` are set
 - Git Hook integration (pre-commit)
-- Highly configurable and multilingual output
-
+- Multilingual file types (JS/TS/Vue/Python/Java/Go, …)
+- Highly configurable rules, risk levels, tool budgets, external skills / ai-rules
+- Localized CLI and final AI answers; **internal model prompts stay English**
 ## 📦 Installation
 
 ```bash
@@ -40,13 +44,103 @@ Initialized directory structure:
 
 ```
 .smart-review/
-├── smart-review.json   # Main config file
-├── ai-rules/           # AI prompt directory
-└── local-rules/        # Local static rules directory
-    ├── security.js     # Security rules
-    ├── performance.js  # Performance rules
-    └── best-practices.js # Best practices rules
+├── smart-review.json   # Main config
+├── ai-rules/           # Custom AI prompts (injected verbatim)
+├── skills/             # Optional external document skills
+└── local-rules/        # Static rules (copied from templates on install)
+    ├── security.js
+    ├── performance.js
+    └── best-practices.js
 ```
+
+### Default review profile
+
+| Item | Default |
+|------|---------|
+| Scope | Diff incremental (`reviewOnlyChanges: true`); only `+` lines |
+| Skills | Evidence trace, API boundary, security-deep, logic, contract, performance, runtime-compat (see [Advanced capabilities](#-advanced-review-capabilities-enabled-by-default)) |
+| Tools | `tools.strategy: conservative` (~6) + `evidenceMaxCalls: 12` |
+| Segmentation | None unless `maxRequestTokens` is set |
+| Loop / fix loop | Off |
+| Blocking static hits | May skip AI when `runWhenBlocked: false` |
+
+### 🎯 Advanced review capabilities (enabled by default)
+
+Beyond static rules and “snippet-only” diff review, Smart Review pre-enables **dimension skills** and **document skills**, and turns on **evidence-trace tools** in diff mode (`tools.strategy: conservative`). The model can read definitions and references in the repo for **correlated analysis**, not just guess from the hunk.
+
+> Built-in skill/tool prompts to the model are English; this section summarizes behavior. CLI and final issue text follow `locale`.
+
+#### 1. Evidence tracing & correlated analysis (`evidence-trace`)
+
+**Problem**: A changed call, config key, or HTTP request cannot be judged from the `+` lines alone.
+
+**Behavior**:
+
+- Start from the **changed snippet**, trace symbol definitions, contracts, error handling, config meaning
+- **Correlated analysis**: `find_references` for defs/refs; `trace_callers` for “who calls this and what this change affects”
+- Traced legacy code is **evidence only** — pre-existing callee issues unrelated to this change are not reported as new findings
+
+**Typical cases**: new/changed calls; new imports/types/config; `import type` contracts; monorepo workspace package imports; generated pb/grpc usage; missing error handling; newly reachable old paths.
+
+**Tool chain**: `resolve_import` → `read_symbol_context` / `read_around` → `find_references` (pass `fromPath` to rank same-file/same-dir matches above homonyms) → `trace_callers`; if still unresolved, `search_in_repo`.
+
+**Import resolution (zero config)**: `resolve_import` auto-reads tsconfig/jsconfig (with `extends`), Vite/Webpack/Nuxt aliases (`@/`, `~/`, `#/`), pnpm/npm **workspace packages**, barrel `export … from` (up to 2 hops), and Python / Go (incl. `internal/`) / Java / PHP imports. **No** `pathAliases` entry in `smart-review.json` is required.
+
+#### 2. Monorepo API contract tracing (`api-boundary-trace`)
+
+**Problem**: In a monorepo, FE API changes or BE route/DTO/validation changes can break the other side without showing up in one file.
+
+**Behavior**:
+
+1. Extract method, path, query/body/header names from the change
+2. `search_in_repo` for `@Get` / `router.post` / handlers / OpenAPI fragments
+3. `read_around` / `read_symbol_context` for DTOs, required fields, validation
+4. For **backend signature changes**: `find_references` / `trace_callers` to verify in-repo callers still match
+
+**Checks**: HTTP method, path, required params, types/enums, visible auth headers.
+
+**Reporting**: Issues stay on the **changed file/snippet**; definitions are cited as evidence. Missing in-repo definition → Medium “needs human confirmation”, not silent pass.
+
+#### 3. Deep security review (`security-deep`)
+
+**Problem**: Generic diff review can miss OWASP-class, auth boundary, and outbound-request risks.
+
+**Extra checklist** (any new input surface, auth, outbound network, sensitive data):
+
+| Area | Focus |
+|------|--------|
+| Injection | SQL/NoSQL/command/LDAP/template |
+| Auth & authz | Identity/permission, privilege escalation, IDOR |
+| Sensitive data | Hardcoded secrets, logging secrets; test values that look real stay High |
+| Session | Cookie flags, fixation/invalidation |
+| Input validation | Length, type, allowlists, upload paths |
+| SSRF | User-controlled URLs to internal/metadata endpoints |
+| Deserialization | Untrusted data into deserialize/merge |
+| CORS / redirects | Overly open CORS, open redirects |
+
+Each issue needs path, snippet, reason, actionable fix; no auto-downgrade to Suggestion for “needs confirmation” or test paths.
+
+#### 4. Other pre-enabled skills
+
+| Skill | Role |
+|------|------|
+| `logic-correctness` | Branches, boundaries, nulls, races, error paths |
+| `api-contract` | Method/path/payload, idempotency, status codes, breaking changes |
+| `performance-hotpath` | N+1, blocking, extra allocations on hot paths |
+| `runtime-compat` | Node/browser/API version differences |
+| `diff-risk-guard` | Review `+` lines only; callee legacy ≠ new finding |
+| `evidence-enforcer` | Every issue needs evidence snippet, risk, reason, suggestion |
+
+Document skills (`evidence-trace`, `api-boundary-trace`, `security-deep`) inject **full checklists** when pre-enabled; `[SKILL_SELECT]` is usually unnecessary. Add team rules via `.smart-review/skills/*.md` with optional `match`.
+
+#### 5. Tuning
+
+| Need | Config |
+|------|--------|
+| More monorepo API trace steps | Raise `tools.evidenceMaxCalls` (default 12) or `tools.strategy: balanced` |
+| Disable tools (save tokens) | `tools.strategy: off` or `ai.tools.enabled: false` |
+| Feed static hits to AI | `includeStaticHints: true` |
+| Extra review round | `loop.enabled: true` |
 
 ### Basic Usage
 
@@ -85,20 +179,9 @@ How it works:
 4. Keep sufficient context to ensure accuracy
 
 #### Large File Chunked Analysis
-For very large files, the tool automatically segments the file:
+Files are segmented only when `ai.maxRequestTokens` is set. If it is omitted, the full file is sent.
 ```bash
 smart-review --files test/src/large-test-file.js
-```
-
-Sample output:
-```
-Review in progress, please wait...
-🔍 Start analyzing file in segments: test/src/large-test-file.js, total 2 segments
-🔍 Analyzing segment 1/2 (lines 1-150), estimated 2400 tokens, 150 lines of code
-   ✅ Segment 1 completed, found 8 issues
-🔍 Analyzing segment 2/2 (lines 130-302), estimated 2800 tokens, 172 lines of code
-   ✅ Segment 2 completed, found 12 issues
-🎯 Segmented analysis completed, 20 issues found in total
 ```
 
 #### Batch Processing Example
@@ -126,9 +209,10 @@ Add to `package.json` if you use Husky:
 ```
 
 #### Interrupt & Terminal Compatibility
-- Works in Git Bash, CMD, and PowerShell
-- Press `q` or `Esc` during review to interrupt and print completed results
-- Interruptions do not fail the review; only blocking risks stop the commit
+- Works in Git Bash, CMD, PowerShell, and common IDE terminals
+- Press `q` / `Esc` (or Ctrl+C) to interrupt and print completed results
+- User interrupt exit code is typically **130** (SIGTERM **143**); interrupt is not a retryable failure
+- Fail the check only for blocking findings, or when AI review is incomplete (empty/invalid conclusion)
 
 ## ⚙️ Config
 
@@ -140,46 +224,7 @@ Main config `.smart-review/smart-review.json` example:
     "enabled": true,
     "provider": "openai",
     "model": "deepseek-chat",
-    "baseURL": "https://api.deepseek.com/v1",
-    "reviewOnlyChanges": true,
-    "maxResponseTokens": 8192,
-    "maxFileSizeKB": 500,
-    "enabledFor": [".js", ".ts", ".jsx", ".tsx", ".py", ".java"],
-    "useStaticHints": true,
-    "maxRequestTokens": 8000,
-    "temperature": 0,
-    "skills": {
-      "enabled": true,
-      "strict": false,
-      "maxSkillsPerRequest": 4,
-      "required": ["DIFF_RISK_GUARD", "EVIDENCE_ENFORCER"],
-      "optional": ["SECURITY_DEEP", "LOGIC_CORRECTNESS", "API_CONTRACT"],
-      "routes": [
-        {
-          "match": ["**/auth/**", "**/security/**"],
-          "modes": ["diff", "batch", "segment"],
-          "add": ["SECURITY_DEEP", "API_CONTRACT"]
-        }
-      ]
-    },
-    "tools": {
-      "enabled": false,
-      "maxCalls": 2,
-      "maxReadLines": 400,
-      "maxSearchMatches": 50,
-      "maxSearchFiles": 120,
-      "maxListFiles": 200,
-      "allow": [
-        "read_file",
-        "get_staged_diff",
-        "list_files",
-        "search_in_file",
-        "get_file_outline",
-        "search_in_repo",
-        "list_changed_files"
-      ]
-    },
-    "concurrency": 3
+    "baseURL": "https://api.deepseek.com/v1"
   },
   "riskLevels": {
     "critical": { "block": true },
@@ -192,6 +237,21 @@ Main config `.smart-review/smart-review.json` example:
 }
 ```
 
+Sampling and limit fields are optional: if omitted they are not sent and do not cap the model. Set them only when you want a limit, for example:
+
+```json
+{
+  "ai": {
+    "temperature": 0,
+    "maxResponseTokens": 8192,
+    "maxRequestTokens": 8000,
+    "maxFilesPerBatch": 10,
+    "concurrency": 3,
+    "tools": { "strategy": "conservative", "evidenceMaxCalls": 12 }
+  }
+}
+```
+
 ### Config Options
 
 #### AI (`ai`)
@@ -200,40 +260,41 @@ Main config `.smart-review/smart-review.json` example:
 - `model`: Model name for the selected provider
 - `apiKey`: Unified API key field (or use environment variables)
 - `baseURL`: API base URL
-- `reviewOnlyChanges`: Enable Git Diff incremental review; true analyzes only changed lines
-- `maxResponseTokens`: Max tokens in AI response
-- `maxFileSizeKB`: Max size per file
+- `reviewOnlyChanges`: Enable Git Diff incremental review. Changed files are reviewed as diffs; files with no reviewable git change fall back to the full file. Use `--full` to force full-file review
+- `maxResponseTokens`: Optional max tokens in AI response; omitted means the field is not sent
+- `maxFileSizeKB`: Optional max size per file for AI; omitted means no size skip
 - `enabledFor`: File extensions supported by AI analysis
-- `useStaticHints`: Include static rules as AI context
-- `maxRequestTokens`: Max tokens per request
-- `minFilesPerBatch` / `maxFilesPerBatch`: Batch sizing
+- `includeStaticHints` (alias: `useStaticHints`): Include static findings as AI context
+- `maxRequestTokens`: Optional request token budget; omitted means no token-based splitting
+- `minFilesPerBatch` / `maxFilesPerBatch`: Optional batch sizing; omit `maxFilesPerBatch` for no file-count cap
 - `tokenRatio`: Token estimation ratio
-- `chunkOverlapLines`: Overlap between segments to keep context
-- `includeStaticHints`: Include rule hints in AI analysis
-- `temperature`: Model creativity; 0 favors deterministic outputs
-- `concurrency`: Number of concurrent AI requests
-- `skills.enabled`: Enable review skill orchestration
-- `skills.strict`: Enforce output constraints (path/snippet/reason/suggestion)
-- `skills.maxSkillsPerRequest`: Max skills applied in one request
-- `skills.required`: Required skill list
-- `skills.optional`: Optional skill list (mode-based supplement)
-- `skills.routes`: Dynamically append skills by file path and mode (`match/modes/add`)
-- `tools.enabled`: Enable local read-only tool calling (see tool list below)
-- `tools.maxCalls`: Max tool-call rounds per request
-- `tools.maxReadLines`: Max lines for single `read_file` call
-- `tools.maxSearchMatches`: Max returned matches for `search_in_file` / `search_in_repo`
-- `tools.maxSearchFiles`: Max scanned files for one `search_in_repo` call
-- `tools.maxListFiles`: Max returned files for one `list_files` call
-- `tools.allow`: Tool allowlist (only listed tools can be called by the model)
+- `chunkOverlapLines`: Overlap between segments (only used when `maxRequestTokens` causes segmentation)
+- `temperature`: Optional sampling parameter; omitted means it is not sent
+- `concurrency`: Number of concurrent AI requests (default 3). Parallelism runs when there is more than one batch
+- `skills.enabled`: Enable skill catalog
+- `skills.path`: External skill docs directory under `.smart-review/` (default `skills`)
+- `tools.strategy`: `off` / `conservative` (default, ~6 calls) / `balanced` (~12) / `aggressive` (~20)
+- `tools.evidenceMaxCalls`: Evidence-trace call cap (default **12**)
+- `loop.enabled`: Multi-round review loop
+- `fixLoop.enabled`: Review-fix loop (structured fix snippets)
+- `fixLoop.autoApply`: Auto-apply fixes and re-review (requires `fixLoop.enabled`)
 
-#### AI Read-Only Tool List (`ai.tools.allow`)
-- `read_file`: Read specific line ranges from one file
-- `get_staged_diff`: Get staged Git diff (optionally filtered by path)
-- `list_files`: Recursively list repository files (supports subdir and keyword/wildcard filtering)
-- `search_in_file`: Search text or regex in a single file
-- `get_file_outline`: Extract lightweight file outline (class/function/method signatures)
-- `search_in_repo`: Search text or regex across repository files (with scan and result caps)
-- `list_changed_files`: List changed Git files (supports staged/unstaged and status filtering)
+#### Skills
+
+See **[Advanced review capabilities](#-advanced-review-capabilities-enabled-by-default)** for the full picture. Config notes:
+
+- A skill outline is always sent; listed skills are **pre-enabled** by default — `[SKILL_SELECT]` is usually unnecessary.
+- External `.smart-review/skills/*.md`: no `match` → always inject; with `match` → path hit only.
+- Findings always land on the **changed snippet**; traced definitions are evidence only.
+
+#### AI read-only tools (including evidence)
+
+Base: `read_file`, `get_staged_diff`, `list_files`, `search_in_file`, `get_file_outline`, `search_in_repo`, `list_changed_files`, `get_file_diff`.
+
+Evidence extras: `resolve_import` (**auto-reads** tsconfig/Vite/Webpack/Nuxt, `@/`/`~/`/`#/` aliases, pnpm/npm workspaces, barrel re-exports, go.mod/composer, etc.; Python/Go/Java/PHP imports), `read_around`, `find_references` (pass `fromPath` to de-prioritize homonyms), `trace_callers`, `read_symbol_context`. Built-in prompts cover `import type` and generated pb/grpc artifacts. On failure, AI is hinted to use `search_in_repo` — **no alias config in smart-review.json required**.
+
+Narrow with `ai.tools.allow` if needed.
+
 #### Risk Levels (`riskLevels`)
 - `critical` / `high` / `medium` / `low` / `suggestion`
 - Each level supports `block` to decide whether to block commits
@@ -327,23 +388,29 @@ Notes
 - Ignore comments must be on separate lines, not mixed with code
 - `review-disable-next-line` affects the immediately following line only
 - `review-disable-start/end` must be paired and affect the range between them
-- In-file ignore affects static rules only, not AI analysis
+- In-file ignore applies to **both static rules and AI** (disabled regions are stripped before review)
 
-## 📋 Built-in Rules
+## 📋 Static rules
 
-### Security
-- **SEC001**: Hardcoded passwords/keys
-- **SEC002**: SQL injection risk — string-concatenated queries
-- **SEC003**: XSS risk — direct manipulation of HTML content
-- **SEC004**: Command injection risk — dangerous command execution APIs
+### Two layers
 
-### Performance
-- **PERF001**: DB queries inside loops — possible N+1 query issues
-- **PERF002**: Memory leak risk — timers created but not cleared
+| Source | Contents |
+|--------|----------|
+| Bundled `defaultRules` | Small core set (e.g. SEC001–003, PERF001–002, some BP) when templates are not installed |
+| Install templates → `.smart-review/local-rules/` | Full set: security ~SEC001–034, performance PERF001–013, best-practices BP, … |
 
-### Best Practices
-- **BP001**: Debugging code — console.log, print, alert, etc.
-- **BP002**: Magic numbers — suggest using named constants
+Default is **merge** mode (external overrides same id). `useExternalRulesOnly: true` uses `local-rules` only.
+
+See `templates/rules/<locale>/` for the full installed lists. Highlights:
+
+### Security (excerpt)
+- **SEC001** hardcoded secrets · **SEC002** SQL injection · **SEC003** XSS · plus command injection, path traversal, SSRF, weak crypto, sensitive logs, …
+
+### Performance (excerpt)
+- **PERF001** N+1 / queries in loops · **PERF002** timer leaks · plus blocking IO, regex/JSON in hot loops, …
+
+### Best Practices (excerpt)
+- **BP001** debug leftovers · **BP002** magic numbers · empty catch / overly broad catch, …
 
 ## 🔧 Custom Rules
 
@@ -392,112 +459,62 @@ export const rules = {
 
 ### AI prompt customization
 
-**`.smart-review/ai-rules/custom-prompts.txt`**
-```text
-Please pay special attention to:
-1. Unhandled Promise rejections
-2. Proper error handling for API calls
-3. Ensure sensitive data is not accidentally logged
-```
+Put text files under `.smart-review/ai-rules/`. Content is injected **verbatim** (any language is fine for team rules).
 
-**`.smart-review/ai-rules/security-focus.txt`**
-```text
-Security review focus:
-- Validate user input
-- Verify access control logic
-- Ensure data encryption and masking
-```
+Built-in system prompts and skill bodies sent to the model are **English**; final answer language follows `locale`.
+
+> Tip: `.txt`, `.md`, or any text file works.
 
 ## 🚀 Performance Optimization
 
 ### Git Diff incremental review
-Core optimization: review only changed content.
+Default: review only changed content (Diff).
 
 #### Benefits
-- Review speed up 70–90%
-- Token usage down 60–80%
-- Memory optimized — load only relevant code segments
-- Reduced network payload — smaller API requests
+- Smaller payloads and faster feedback on typical commits
+- Lower AI token usage and cost
+- Better fit for large repos
 
 #### Best for
-- Daily development commits
-- Feature iterations
-- Bug fixes
-- Refactoring focus areas
+- Daily commits, feature work, bug fixes
+- Use `--full` or `reviewOnlyChanges: false` when full-file context is required
 
 #### Context preservation
 ```json
 {
   "ai": {
     "reviewOnlyChanges": true,
-    "contextMergeLines": 10,
-    "chunkOverlapLines": 5
+    "contextMergeLines": 10
   }
 }
 ```
 
 ### Large file strategy
 
-Smart batching efficiently handles huge files.
+Segmentation is **opt-in**.
 
 #### Segmentation
-- Auto-detect files exceeding token limits
-- Split into overlapping segments
-- Preserve context via overlap
-- Parallel analysis supported
+- Without `maxRequestTokens`: prefer full file (or split by `maxFilesPerBatch` only)
+- With a budget: oversized files are split with overlap; combine with `concurrency` as needed
 
-#### Token management
+#### Example
 ```json
 {
   "ai": {
     "maxRequestTokens": 8000,
     "chunkOverlapLines": 5,
-    "minFilesPerBatch": 1,
-    "maxFilesPerBatch": 10
+    "maxFilesPerBatch": 10,
+    "concurrency": 3,
+    "tools": { "strategy": "balanced", "evidenceMaxCalls": 12 }
   }
 }
 ```
 
 #### Tips
-1. Tune batch parameters
-```json
-{
-  "ai": {
-    "maxRequestTokens": 6000,
-    "chunkOverlapLines": 10,
-    "minFilesPerBatch": 1,
-    "maxFilesPerBatch": 5
-  }
-}
-```
-2. Enable concurrency
-```json
-{
-  "ai": {
-    "concurrency": 3,
-    "maxFilesPerBatch": 5
-  }
-}
-```
-3. Smart batching parameters
-```json
-{
-  "ai": {
-    "minFilesPerBatch": 1,
-    "maxFilesPerBatch": 5
-  }
-}
-```
-4. File filtering
-```json
-{
-  "ignoreFiles": [
-    "**/*.min.js",
-    "**/dist/**",
-    "**/*.generated.*"
-  ]
-}
-```
+1. Prefer Diff incremental before enabling segmentation
+2. Raise `evidenceMaxCalls` / `tools.strategy` for deeper monorepo API tracing
+3. Ignore `dist`, minified, and generated files
+4. Enable `loop.enabled` on sensitive paths when you want a second pass
 
 ### Memory and network optimization
 
@@ -569,23 +586,19 @@ smart_review:
 
 ## 🌍 Internationalization (i18n)
 
-- Config `locale`: set at the top level in `.smart-review/smart-review.json`. Supported values: `zh-CN`, `en-US`. Example: `{ "locale": "en-US" }`.
-- Env var `SMART_REVIEW_LOCALE`: highest priority; the installer selects rule templates based on this value.
-- Selection priority: Env var > Project config `.smart-review/smart-review.json` > Template default `templates/smart-review.json` > fallback `zh-CN`.
-- Template directories: `templates/rules/<locale>/security.js | performance.js | best-practices.js`. Missing files for a locale fall back to `zh-CN`.
-- CLI/Git hook messages switch language automatically according to `locale`.
-
-Switch examples:
+- `locale` (`zh-CN` / `en-US`) controls: CLI text, install templates, and the language of the model's **final answer**.
+- **Internal prompts and built-in skill bodies sent to the model are always English**, regardless of `locale`.
+- Env `SMART_REVIEW_LOCALE` overrides config.
+- Priority: env > `.smart-review/smart-review.json` > template default > `zh-CN`.
+- Rule templates: `templates/rules/<locale>/`; missing files fall back to `zh-CN`.
 
 ```bash
-# Windows PowerShell (current session)
+# Windows PowerShell
 $env:SMART_REVIEW_LOCALE='en-US'; node bin/install.js
 
-# macOS/Linux bash
+# macOS/Linux
 export SMART_REVIEW_LOCALE=en-US && node bin/install.js
 ```
-
-To add a new language (e.g., `ja-JP`), create `templates/rules/ja-JP/` with the three rule files and set `"locale": "ja-JP"` or use the env var.
 
 ## 🌍 Environment Variables
 
@@ -612,12 +625,17 @@ To use a custom OpenAI-compatible endpoint, set `ai.baseURL` in `.smart-review/s
 ```bash
 smart-review [options]
   --staged            Review Git staged files
-  --files <files>     Review specific files (comma separated)
+  --files <files>     Review specific files (comma separated; per-file: diff if present, else full file)
+  --full              Force full-file review
   --ai                Force enable AI analysis
   --no-ai             Disable AI analysis
   --diff-only         Only review changed lines (Git Diff mode)
   --debug             Print debug logs
 ```
+
+- `--files`: files with reviewable added lines use Diff; untouched files fall back to full file; delete-only diffs do not full-file-fallback
+- `--full`: force full file for the listed paths
+- Interrupt with `q`/`Esc` → exit **130** typically
 
 ## 🛠️ Troubleshooting
 
