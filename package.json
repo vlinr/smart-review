@@ -1,6 +1,6 @@
 {
   "name": "smart-review",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "AI 智能代码审查：静态规则 + 证据溯源，支持 CLI 与 Git Hook，覆盖安全、逻辑与契约风险",
   "type": "module",
   "main": "index.js",
@@ -11,6 +11,9 @@
     "postinstall": "node ./bin/install.js",
     "dev:install": "node ./bin/install.js",
     "dev:review": "node ./bin/review.js",
+    "sync:readme-links": "node ./scripts/sync-readme-lang-links.mjs",
+    "prepublishOnly": "node ./scripts/sync-readme-lang-links.mjs --for-npm",
+    "postpublish": "node ./scripts/sync-readme-lang-links.mjs --restore",
     "test": "node --test test/unit/review-skills.test.js test/unit/review-loop.test.js test/unit/review-fix.test.js test/unit/fix-applier.test.js test/unit/tools-strategy.test.js test/unit/provider-config.test.js test/unit/ai-providers.test.js test/unit/trace-tools.test.js test/unit/config-loader.test.js test/unit/diff-pack.test.js test/unit/change-scope-filter.test.js test/unit/risk-level.test.js test/unit/smart-batching.test.js test/unit/output-continue.test.js test/unit/choice-text.test.js test/unit/file-partition.test.js test/unit/static-hints-log-sanitize.test.js test/unit/ai-errors.test.js test/unit/import-resolver.test.js test/unit/issue-field-normalize.test.js test/unit/review-stability.test.js test/unit/parse-issue-stability.test.js test/unit/output-self-check.test.js",
     "test:local": "cd test && npm run test-review",
     "test:ai": "node ./bin/review.js --files test/src/index.tsx --ai",
