@@ -1,9 +1,12 @@
 {
   "name": "smart-review",
-  "version": "1.1.2",
+  "version": "1.1.4",
   "description": "AI 智能代码审查：静态规则 + 证据溯源，支持 CLI 与 Git Hook，覆盖安全、逻辑与契约风险",
   "type": "module",
   "main": "index.js",
+  "exports": {
+    ".": "./index.js"
+  },
   "bin": {
     "smart-review": "./bin/review.js"
   },
@@ -12,16 +15,37 @@
     "dev:install": "node ./bin/install.js",
     "dev:review": "node ./bin/review.js",
     "sync:readme-links": "node ./scripts/sync-readme-lang-links.mjs",
-    "prepublishOnly": "node ./scripts/sync-readme-lang-links.mjs --for-npm",
+    "prepublishOnly": "node ./scripts/sync-readme-lang-links.mjs --for-npm && npm test",
     "postpublish": "node ./scripts/sync-readme-lang-links.mjs --restore",
-    "test": "node --test test/unit/review-skills.test.js test/unit/review-loop.test.js test/unit/review-fix.test.js test/unit/fix-applier.test.js test/unit/tools-strategy.test.js test/unit/provider-config.test.js test/unit/ai-providers.test.js test/unit/trace-tools.test.js test/unit/config-loader.test.js test/unit/diff-pack.test.js test/unit/change-scope-filter.test.js test/unit/risk-level.test.js test/unit/smart-batching.test.js test/unit/output-continue.test.js test/unit/choice-text.test.js test/unit/file-partition.test.js test/unit/static-hints-log-sanitize.test.js test/unit/ai-errors.test.js test/unit/import-resolver.test.js test/unit/issue-field-normalize.test.js test/unit/review-stability.test.js test/unit/parse-issue-stability.test.js test/unit/output-self-check.test.js",
+    "test": "node --test test/unit/review-skills.test.js test/unit/review-loop.test.js test/unit/review-fix.test.js test/unit/fix-applier.test.js test/unit/tools-strategy.test.js test/unit/provider-config.test.js test/unit/ai-providers.test.js test/unit/trace-tools.test.js test/unit/config-loader.test.js test/unit/diff-pack.test.js test/unit/change-scope-filter.test.js test/unit/risk-level.test.js test/unit/smart-batching.test.js test/unit/output-continue.test.js test/unit/choice-text.test.js test/unit/file-partition.test.js test/unit/static-hints-log-sanitize.test.js test/unit/ai-errors.test.js test/unit/import-resolver.test.js test/unit/issue-field-normalize.test.js test/unit/review-stability.test.js test/unit/parse-issue-stability.test.js test/unit/output-self-check.test.js test/unit/git-hooks.test.js",
     "test:local": "cd test && npm run test-review",
     "test:ai": "node ./bin/review.js --files test/src/index.tsx --ai",
     "debug": "node --inspect ./bin/review.js --files test/src/test-file.js"
   },
-  "keywords": ["code-review", "ai", "git-hook", "security"],
-  "author": "",
+  "keywords": [
+    "code-review",
+    "ai",
+    "git-hook",
+    "pre-commit",
+    "security",
+    "static-analysis",
+    "cli",
+    "openai",
+    "anthropic",
+    "gemini",
+    "lint",
+    "devtool"
+  ],
+  "author": "keen <zlife@vip.qq.com>",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vlinr/smart-review.git"
+  },
+  "bugs": {
+    "url": "https://github.com/vlinr/smart-review/issues"
+  },
+  "homepage": "https://github.com/vlinr/smart-review#readme",
   "dependencies": {
     "chalk": "^5.3.0",
     "glob": "^10.3.10",
